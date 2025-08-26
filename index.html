@@ -2,36 +2,50 @@
 <html>
   <head>
     <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <title>Kid Speak & Learn</title>
     <style>
-      body{font-family:system-ui;margin:2rem;max-width:720px}
-      button{padding:.8rem 1.2rem;border-radius:12px;border:1px solid #ddd}
-      audio{margin-top:1rem;width:100%}
-      label{display:block;margin:.5rem 0}
+      :root { --card:#fff; --ink:#111; --muted:#666; --bd:#e5e7eb; --bg:#f8fafc; }
+      * { box-sizing: border-box }
+      body { margin:0; font-family: system-ui, Segoe UI, Roboto, Arial; background: var(--bg); color: var(--ink) }
+      .wrap { max-width: 760px; margin: 2rem auto; background: var(--card); padding: 1.5rem; border:1px solid var(--bd); border-radius: 16px; }
+      h1 { margin: 0 0 1rem }
+      .row { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap }
+      select, button { padding:.8rem 1.1rem; border-radius:12px; border:1px solid var(--bd); background:#fff }
+      button { cursor:pointer; font-weight:600 }
+      button.rec { background:#eef2ff; border-color:#c7d2fe }
+      .status { color: var(--muted); margin:.5rem 0 1rem }
+      audio { width:100%; margin-top:.75rem }
+      .box { background:#fafafa; border:1px dashed var(--bd); border-radius:12px; padding:.75rem; margin-top:.5rem }
+      b { font-weight:600 }
     </style>
   </head>
   <body>
-    <h1>Kid Speak & Learn</h1>
-    <label>Target language:
-      <select id="lang">
-        <option value="English">English</option>
-        <option value="Hindi">Hindi</option>
-        <option value="Tamil">Tamil</option>
-        <option value="Telugu">Telugu</option>
-        <option value="Kannada">Kannada</option>
-        <option value="Malayalam">Malayalam</option>
-        <option value="Marathi">Marathi</option>
-        <option value="Gujarati">Gujarati</option>
-        <option value="Bengali">Bengali</option>
-        <option value="Punjabi">Punjabi</option>
-      </select>
-    </label>
+    <div class="wrap">
+      <h1>Kid Speak & Learn</h1>
+      <div class="row">
+        <label for="lang"><b>Answer language</b></label>
+        <select id="lang">
+          <option>English</option>
+          <option>Hindi</option>
+          <option>Tamil</option>
+          <option>Telugu</option>
+          <option>Kannada</option>
+          <option>Malayalam</option>
+          <option>Marathi</option>
+          <option>Gujarati</option>
+          <option>Bengali</option>
+          <option>Punjabi</option>
+        </select>
+        <button id="recBtn" class="rec">🎙️ Hold to speak</button>
+      </div>
 
-    <button id="recBtn">🎙️ Hold to speak</button>
-    <p id="status"></p>
-    <p><b>Transcript:</b> <span id="transcript"></span></p>
-    <p><b>Answer:</b> <span id="answer"></span></p>
-    <audio id="player" controls></audio>
+      <div class="status" id="status">Press and hold to record. Release to send.</div>
+
+      <div class="box"><b>Transcript:</b> <span id="transcript">—</span></div>
+      <div class="box"><b>Answer:</b> <span id="answer">—</span></div>
+      <audio id="player" controls></audio>
+    </div>
 
     <script>
       const recBtn = document.getElementById('recBtn');
@@ -43,8 +57,13 @@
 
       let mediaRecorder, chunks = [];
 
-      async function getStream(){
-        return await navigator.mediaDevices.getUserMedia({ audio: true });
+      async function getStream() {
+        try {
+          return await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e) {
+          alert("Microphone permission is required.");
+          throw e;
+        }
       }
 
       recBtn.addEventListener('mousedown', async () => {
@@ -59,25 +78,34 @@
           const fd = new FormData();
           fd.append('audio', blob, 'speech.webm');
           fd.append('targetLanguage', langSel.value);
-          const res = await fetch('/api/ask', { method: 'POST', body: fd });
-          if (!res.ok){ statusEl.textContent = 'Error. Try again.'; return; }
-          const { transcript, text, audioUrl } = await res.json();
-          transcriptEl.textContent = transcript;
-          answerEl.textContent = text;
-          player.src = audioUrl;
-          statusEl.textContent = 'Done!';
+
+          try {
+            const res = await fetch('/api/ask', { method: 'POST', body: fd });
+            if (!res.ok) throw new Error('Request failed');
+            const { transcript, text, audioBase64 } = await res.json();
+            transcriptEl.textContent = transcript || '—';
+            answerEl.textContent = text || '—';
+            player.src = 'data:audio/mpeg;base64,' + audioBase64;
+            statusEl.textContent = 'Done!';
+          } catch (e) {
+            console.error(e);
+            statusEl.textContent = 'Error. Try again.';
+          }
         };
         mediaRecorder.start();
       });
 
-      recBtn.addEventListener('mouseup', () => {
-        statusEl.textContent = 'Sending...';
-        mediaRecorder && mediaRecorder.stop();
-      });
+      function stopIfRecording() {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+          statusEl.textContent = 'Sending...';
+          mediaRecorder.stop();
+        }
+      }
 
-      recBtn.addEventListener('mouseleave', () => {
-        if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-      });
+      recBtn.addEventListener('mouseup', stopIfRecording);
+      recBtn.addEventListener('mouseleave', stopIfRecording);
+      recBtn.addEventListener('touchstart', (e) => { e.preventDefault(); recBtn.dispatchEvent(new Event('mousedown')); }, {passive:false});
+      recBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopIfRecording(); }, {passive:false});
     </script>
   </body>
 </html>
