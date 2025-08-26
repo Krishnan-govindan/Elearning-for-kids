@@ -47,65 +47,64 @@
       <audio id="player" controls></audio>
     </div>
 
-    <script>
-      const recBtn = document.getElementById('recBtn');
-      const statusEl = document.getElementById('status');
-      const transcriptEl = document.getElementById('transcript');
-      const answerEl = document.getElementById('answer');
-      const player = document.getElementById('player');
-      const langSel = document.getElementById('lang');
+  <script>
+  // IMPORTANT: point to your Render web service
+  const API_BASE = "https://india-therapist-chatbot.onrender.com";
 
-      let mediaRecorder, chunks = [];
+  const recBtn = document.getElementById('recBtn');
+  const statusEl = document.getElementById('status');
+  const transcriptEl = document.getElementById('transcript');
+  const answerEl = document.getElementById('answer');
+  const player = document.getElementById('player');
+  const langSel = document.getElementById('lang');
 
-      async function getStream() {
-        try {
-          return await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch (e) {
-          alert("Microphone permission is required.");
-          throw e;
-        }
+  let mediaRecorder, chunks = [];
+
+  async function getStream() {
+    try { return await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { alert("Microphone permission is required."); throw e; }
+  }
+
+  recBtn.addEventListener('mousedown', async () => {
+    statusEl.textContent = 'Recording... release to send';
+    const stream = await getStream();
+    chunks = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      statusEl.textContent = 'Processing...';
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const fd = new FormData();
+      fd.append('audio', blob, 'speech.webm');
+      fd.append('targetLanguage', langSel.value);
+
+      try {
+        const res = await fetch(`${API_BASE}/api/ask`, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error('Request failed');
+        const { transcript, text, audioBase64 } = await res.json();
+        transcriptEl.textContent = transcript || '—';
+        answerEl.textContent = text || '—';
+        player.src = 'data:audio/mpeg;base64,' + audioBase64;
+        statusEl.textContent = 'Done!';
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = 'Error. Try again.';
       }
+    };
+    mediaRecorder.start();
+  });
 
-      recBtn.addEventListener('mousedown', async () => {
-        statusEl.textContent = 'Recording... release to send';
-        const stream = await getStream();
-        chunks = [];
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-        mediaRecorder.ondataavailable = e => chunks.push(e.data);
-        mediaRecorder.onstop = async () => {
-          statusEl.textContent = 'Processing...';
-          const blob = new Blob(chunks, { type: 'audio/webm' });
-          const fd = new FormData();
-          fd.append('audio', blob, 'speech.webm');
-          fd.append('targetLanguage', langSel.value);
+  function stopIfRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      statusEl.textContent = 'Sending...';
+      mediaRecorder.stop();
+    }
+  }
 
-          try {
-            const res = await fetch('/api/ask', { method: 'POST', body: fd });
-            if (!res.ok) throw new Error('Request failed');
-            const { transcript, text, audioBase64 } = await res.json();
-            transcriptEl.textContent = transcript || '—';
-            answerEl.textContent = text || '—';
-            player.src = 'data:audio/mpeg;base64,' + audioBase64;
-            statusEl.textContent = 'Done!';
-          } catch (e) {
-            console.error(e);
-            statusEl.textContent = 'Error. Try again.';
-          }
-        };
-        mediaRecorder.start();
-      });
-
-      function stopIfRecording() {
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-          statusEl.textContent = 'Sending...';
-          mediaRecorder.stop();
-        }
-      }
-
-      recBtn.addEventListener('mouseup', stopIfRecording);
-      recBtn.addEventListener('mouseleave', stopIfRecording);
-      recBtn.addEventListener('touchstart', (e) => { e.preventDefault(); recBtn.dispatchEvent(new Event('mousedown')); }, {passive:false});
-      recBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopIfRecording(); }, {passive:false});
-    </script>
+  recBtn.addEventListener('mouseup', stopIfRecording);
+  recBtn.addEventListener('mouseleave', stopIfRecording);
+  recBtn.addEventListener('touchstart', (e) => { e.preventDefault(); recBtn.dispatchEvent(new Event('mousedown')); }, {passive:false});
+  recBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopIfRecording(); }, {passive:false});
+</script>
   </body>
 </html>
