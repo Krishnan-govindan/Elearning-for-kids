@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Kid Speak & Learn</title>
+    <style>
+      body{font-family:system-ui;margin:2rem;max-width:720px}
+      button{padding:.8rem 1.2rem;border-radius:12px;border:1px solid #ddd}
+      audio{margin-top:1rem;width:100%}
+      label{display:block;margin:.5rem 0}
+    </style>
+  </head>
+  <body>
+    <h1>Kid Speak & Learn</h1>
+    <label>Target language:
+      <select id="lang">
+        <option value="English">English</option>
+        <option value="Hindi">Hindi</option>
+        <option value="Tamil">Tamil</option>
+        <option value="Telugu">Telugu</option>
+        <option value="Kannada">Kannada</option>
+        <option value="Malayalam">Malayalam</option>
+        <option value="Marathi">Marathi</option>
+        <option value="Gujarati">Gujarati</option>
+        <option value="Bengali">Bengali</option>
+        <option value="Punjabi">Punjabi</option>
+      </select>
+    </label>
+
+    <button id="recBtn">🎙️ Hold to speak</button>
+    <p id="status"></p>
+    <p><b>Transcript:</b> <span id="transcript"></span></p>
+    <p><b>Answer:</b> <span id="answer"></span></p>
+    <audio id="player" controls></audio>
+
+    <script>
+      const recBtn = document.getElementById('recBtn');
+      const statusEl = document.getElementById('status');
+      const transcriptEl = document.getElementById('transcript');
+      const answerEl = document.getElementById('answer');
+      const player = document.getElementById('player');
+      const langSel = document.getElementById('lang');
+
+      let mediaRecorder, chunks = [];
+
+      async function getStream(){
+        return await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+
+      recBtn.addEventListener('mousedown', async () => {
+        statusEl.textContent = 'Recording... release to send';
+        const stream = await getStream();
+        chunks = [];
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        mediaRecorder.ondataavailable = e => chunks.push(e.data);
+        mediaRecorder.onstop = async () => {
+          statusEl.textContent = 'Processing...';
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          const fd = new FormData();
+          fd.append('audio', blob, 'speech.webm');
+          fd.append('targetLanguage', langSel.value);
+          const res = await fetch('/api/ask', { method: 'POST', body: fd });
+          if (!res.ok){ statusEl.textContent = 'Error. Try again.'; return; }
+          const { transcript, text, audioUrl } = await res.json();
+          transcriptEl.textContent = transcript;
+          answerEl.textContent = text;
+          player.src = audioUrl;
+          statusEl.textContent = 'Done!';
+        };
+        mediaRecorder.start();
+      });
+
+      recBtn.addEventListener('mouseup', () => {
+        statusEl.textContent = 'Sending...';
+        mediaRecorder && mediaRecorder.stop();
+      });
+
+      recBtn.addEventListener('mouseleave', () => {
+        if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+      });
+    </script>
+  </body>
+</html>
