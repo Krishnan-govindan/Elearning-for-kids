@@ -13,98 +13,194 @@
       .row { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap }
       select, button { padding:.8rem 1.1rem; border-radius:12px; border:1px solid var(--bd); background:#fff }
       button { cursor:pointer; font-weight:600 }
-      button.rec { background:#eef2ff; border-color:#c7d2fe }
+      button.primary { background:#111; color:#fff; }
+      button.ghost { background:#fff; }
+      button[disabled] { opacity:.55; cursor:not-allowed }
       .status { color: var(--muted); margin:.5rem 0 1rem }
       audio { width:100%; margin-top:.75rem }
       .box { background:#fafafa; border:1px dashed var(--bd); border-radius:12px; padding:.75rem; margin-top:.5rem }
       b { font-weight:600 }
+      .pill { padding:.3rem .6rem; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe; font-size:.85rem }
     </style>
   </head>
   <body>
     <div class="wrap">
       <h1>Kid Speak & Learn</h1>
+
       <div class="row">
-        <label for="lang"><b>Answer language</b></label>
-        <select id="lang">
-          <option>English</option>
-          <option>Hindi</option>
-          <option>Tamil</option>
-          <option>Telugu</option>
-          <option>Kannada</option>
-          <option>Malayalam</option>
-          <option>Marathi</option>
-          <option>Gujarati</option>
-          <option>Bengali</option>
-          <option>Punjabi</option>
-        </select>
-        <button id="recBtn" class="rec">🎙️ Hold to speak</button>
+        <label><b>Speaking language</b><br/>
+          <select id="speakLang" required>
+            <option value="">Select language</option>
+            <option>English</option>
+            <option>Hindi</option>
+            <option>Tamil</option>
+            <option>Telugu</option>
+            <option>Kannada</option>
+            <option>Malayalam</option>
+            <option>Marathi</option>
+            <option>Gujarati</option>
+            <option>Bengali</option>
+            <option>Panjabi</option>
+          </select>
+        </label>
+
+        <label><b>Answer language</b><br/>
+          <select id="answerLang" required>
+            <option value="">Select language</option>
+            <option>English</option>
+            <option>Hindi</option>
+            <option>Tamil</option>
+            <option>Telugu</option>
+            <option>Kannada</option>
+            <option>Malayalam</option>
+            <option>Marathi</option>
+            <option>Gujarati</option>
+            <option>Bengali</option>
+            <option>Panjabi</option>
+          </select>
+        </label>
+
+        <button id="recordBtn" class="ghost">🎙️ Start recording</button>
+        <button id="sendBtn" class="primary" disabled>↗ Send</button>
+        <span id="timer" class="pill" hidden>00:00</span>
       </div>
 
-      <div class="status" id="status">Press and hold to record. Release to send.</div>
+      <div class="status" id="status">Choose both languages → tap <b>Start recording</b>, then tap <b>Send</b>.</div>
 
       <div class="box"><b>Transcript:</b> <span id="transcript">—</span></div>
       <div class="box"><b>Answer:</b> <span id="answer">—</span></div>
       <audio id="player" controls></audio>
     </div>
 
-  <script>
-  // IMPORTANT: point to your Render web service
-  const API_BASE = "https://india-therapist-chatbot.onrender.com";
+    <script>
+      // Use your Render API from anywhere (e.g., GitHub Pages)
+      const API_BASE = "https://india-therapist-chatbot.onrender.com";
 
-  const recBtn = document.getElementById('recBtn');
-  const statusEl = document.getElementById('status');
-  const transcriptEl = document.getElementById('transcript');
-  const answerEl = document.getElementById('answer');
-  const player = document.getElementById('player');
-  const langSel = document.getElementById('lang');
+      const recordBtn = document.getElementById('recordBtn');
+      const sendBtn   = document.getElementById('sendBtn');
+      const statusEl  = document.getElementById('status');
+      const transcriptEl = document.getElementById('transcript');
+      const answerEl     = document.getElementById('answer');
+      const player       = document.getElementById('player');
+      const speakLangSel = document.getElementById('speakLang');
+      const answerLangSel= document.getElementById('answerLang');
+      const timerBadge   = document.getElementById('timer');
 
-  let mediaRecorder, chunks = [];
+      let mediaRecorder, chunks = [], isRecording = false, startTs = 0, tickInt = null, lastBlob = null;
 
-  async function getStream() {
-    try { return await navigator.mediaDevices.getUserMedia({ audio: true }); }
-    catch (e) { alert("Microphone permission is required."); throw e; }
-  }
-
-  recBtn.addEventListener('mousedown', async () => {
-    statusEl.textContent = 'Recording... release to send';
-    const stream = await getStream();
-    chunks = [];
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-    mediaRecorder.ondataavailable = e => chunks.push(e.data);
-    mediaRecorder.onstop = async () => {
-      statusEl.textContent = 'Processing...';
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      const fd = new FormData();
-      fd.append('audio', blob, 'speech.webm');
-      fd.append('targetLanguage', langSel.value);
-
-      try {
-        const res = await fetch(`${API_BASE}/api/ask`, { method: 'POST', body: fd });
-        if (!res.ok) throw new Error('Request failed');
-        const { transcript, text, audioBase64 } = await res.json();
-        transcriptEl.textContent = transcript || '—';
-        answerEl.textContent = text || '—';
-        player.src = 'data:audio/mpeg;base64,' + audioBase64;
-        statusEl.textContent = 'Done!';
-      } catch (e) {
-        console.error(e);
-        statusEl.textContent = 'Error. Try again.';
+      function validateLangs() {
+        const ok = speakLangSel.value && answerLangSel.value;
+        recordBtn.disabled = !ok;
+        sendBtn.disabled = !ok || !lastBlob;
+        return ok;
       }
-    };
-    mediaRecorder.start();
-  });
 
-  function stopIfRecording() {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      statusEl.textContent = 'Sending...';
-      mediaRecorder.stop();
-    }
-  }
+      speakLangSel.addEventListener('change', validateLangs);
+      answerLangSel.addEventListener('change', validateLangs);
 
-  recBtn.addEventListener('mouseup', stopIfRecording);
-  recBtn.addEventListener('mouseleave', stopIfRecording);
-  recBtn.addEventListener('touchstart', (e) => { e.preventDefault(); recBtn.dispatchEvent(new Event('mousedown')); }, {passive:false});
-  recBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopIfRecording(); }, {passive:false});
-</script>
+      async function getStream() {
+        try {
+          return await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch {
+          alert("Microphone permission is required.");
+          throw new Error("no-mic");
+        }
+      }
+
+      function fmt(sec) {
+        const m = String(Math.floor(sec/60)).padStart(2,'0');
+        const s = String(Math.floor(sec%60)).padStart(2,'0');
+        return `${m}:${s}`;
+      }
+
+      function startTimer() {
+        timerBadge.hidden = false;
+        startTs = Date.now();
+        tickInt = setInterval(() => {
+          const sec = (Date.now() - startTs)/1000;
+          timerBadge.textContent = fmt(sec);
+        }, 250);
+      }
+
+      function stopTimer() {
+        clearInterval(tickInt);
+        tickInt = null;
+      }
+
+      async function toggleRecording() {
+        if (!validateLangs()) {
+          statusEl.textContent = "Please select both languages first.";
+          return;
+        }
+        if (!isRecording) {
+          // start
+          statusEl.textContent = 'Recording… tap again to stop';
+          const stream = await getStream();
+          chunks = [];
+          mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+          mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+          mediaRecorder.onstop = async () => {
+            const blob = new Blob(chunks, { type: 'audio/webm' });
+            lastBlob = blob;
+            if (blob.size < 5000) {
+              statusEl.textContent = 'Too short. Record at least 1 second.';
+              sendBtn.disabled = true;
+            } else {
+              statusEl.textContent = 'Recording saved. Now tap “Send”.';
+              sendBtn.disabled = !validateLangs();
+            }
+          };
+          mediaRecorder.start();
+          isRecording = true;
+          recordBtn.textContent = "⏹ Stop";
+          startTimer();
+        } else {
+          // stop
+          stopTimer();
+          timerBadge.hidden = true;
+          statusEl.textContent = 'Processing recording…';
+          isRecording = false;
+          recordBtn.textContent = "🎙️ Start recording";
+          try { mediaRecorder.stop(); } catch {}
+        }
+      }
+
+      async function sendAudio() {
+        if (!lastBlob) { statusEl.textContent = "Please record something first."; return; }
+        if (!validateLangs()) { statusEl.textContent = "Please select both languages."; return; }
+
+        statusEl.textContent = "Sending…";
+        const fd = new FormData();
+        fd.append('audio', lastBlob, 'speech.webm');
+        fd.append('speakLanguage',  speakLangSel.value);
+        fd.append('answerLanguage', answerLangSel.value);
+
+        try {
+          const res = await fetch(`${API_BASE}/api/ask`, { method: 'POST', body: fd });
+          const json = await res.json();
+          if (!res.ok) {
+            const msg = json?.error === 'audio_too_short'
+              ? 'Audio too short. Please record at least 1 second.'
+              : (json?.error || 'Request failed');
+            statusEl.textContent = msg;
+            return;
+          }
+          const { transcript, text, audioBase64 } = json;
+          transcriptEl.textContent = transcript || '—';
+          answerEl.textContent = text || '—';
+          player.src = 'data:audio/mpeg;base64,' + audioBase64;
+          statusEl.textContent = 'Done! Tap Start to ask again.';
+          // keep lastBlob so they can resend if they want
+        } catch (e) {
+          console.error(e);
+          statusEl.textContent = "Network error. Try again.";
+        }
+      }
+
+      recordBtn.addEventListener('click', toggleRecording);
+      sendBtn  .addEventListener('click', sendAudio);
+
+      validateLangs(); // initialize disabled state
+    </script>
   </body>
 </html>
