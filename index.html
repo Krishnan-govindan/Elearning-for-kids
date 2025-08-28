@@ -1,173 +1,260 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kid Speak & Learn</title>
-  <style>
-    /* Existing CSS styles omitted for brevity ... */
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Kid Speak & Learn</title>
+    <style>
+      :root { --card:#fff; --ink:#111; --muted:#666; --bd:#e5e7eb; --bg:#f8fafc; }
+      * { box-sizing: border-box }
+      body { margin:0; font-family: system-ui, Segoe UI, Roboto, Arial; background: var(--bg); color: var(--ink) }
+      .wrap { max-width: 760px; margin: 2rem auto; background: var(--card); padding: 1.5rem; border:1px solid var(--bd); border-radius: 16px; }
+      h1 { margin: 0 0 1rem }
+      .row { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap }
+      select, button { padding:.8rem 1.1rem; border-radius:12px; border:1px solid var(--bd); background:#fff }
+      button { cursor:pointer; font-weight:600 }
+      button.primary { background:#111; color:#fff; }
+      button.ghost { background:#fff; }
+      button[disabled] { opacity:.55; cursor:not-allowed }
+      .status { color: var(--muted); margin:.5rem 0 1rem }
+      audio { width:100%; margin-top:.75rem }
+      .box { background:#fafafa; border:1px dashed var(--bd); border-radius:12px; padding:.75rem; margin-top:.5rem }
+      b { font-weight:600 }
+      .pill { padding:.3rem .6rem; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe; font-size:.85rem }
+      /* Loading bar style */
+      #loadingBar {
+        display: none;
+        width: 100%;
+        padding: 0.6rem;
+        background-color: #4CAF50;
+        color: #fff;
+        text-align: center;
+        border-radius: 8px;
+        margin-top: 0.5rem;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Kid Speak & Learn</h1>
 
-    /* New Styles for Loading Bar */
-    #loadingBarContainer {
-      display: none;              /* Hidden by default, shown during loading */
-      margin-top: 1em;
-    }
-    #loadingBar {
-      width: 100%;
-      background-color: #28a745;  /* Green background (bootstrap .bg-success color) */
-      color: #fff;
-      text-align: center;
-      padding: 0.5em 0;
-      /* Optional: animated stripes */
-      background-image: repeating-linear-gradient(
-        45deg,
-        rgba(255,255,255,0.2) 0 10px,
-        transparent 10px 20px
-      );
-      background-size: 20px 20px;
-      animation: progressAnim 1s linear infinite;
-    }
-    @keyframes progressAnim {
-      0% { background-position: 0 0; }
-      100% { background-position: 20px 20px; }
-    }
-    /* Hide transcript/answer/audio initially (or use a CSS class like .hidden) */
-    #transcript, #answer, #audioPlayer {
-      display: none;
-    }
-  </style>
-</head>
-<body>
-  <h1>Kid Speak & Learn</h1>
+      <div class="row">
+        <label><b>Speaking language</b><br/>
+          <select id="speakLang" required>
+            <option value="">Select language</option>
+            <option>English</option>
+            <option>Hindi (हिन्दी)</option>
+            <option>Tamil (தமிழ்)</option>
+            <option>Telugu (తెలుగు)</option>
+            <option>Kannada (ಕನ್ನಡ)</option>
+            <option>Malayalam (മലയാളം)</option>
+            <option>Marathi (मराठी)</option>
+            <option>Gujarati (ગુજરાતી)</option>
+            <option>Bengali (বাংলা)</option>
+            <option>Panjabi (ਪੰਜਾਬੀ)</option>
+          </select>
+        </label>
 
-  <!-- Language selection (existing feature) -->
-  <label for="languageSelect">Answer language:</label>
-  <select id="languageSelect">
-    <!-- Options ... -->
-    <option value="en">English</option>
-    <option value="ta">Tamil</option>
-    <!-- etc. -->
-  </select>
+        <label><b>Answer language</b><br/>
+          <select id="answerLang" required>
+            <option value="">Select language</option>
+            <option>English</option>
+            <option>Hindi (हिन्दी)</option>
+            <option>Tamil (தமிழ்)</option>
+            <option>Telugu (తెలుగు)</option>
+            <option>Kannada (ಕನ್ನಡ)</option>
+            <option>Malayalam (മലയാളം)</option>
+            <option>Marathi (मराठी)</option>
+            <option>Gujarati (ગુજરાતી)</option>
+            <option>Bengali (বাংলা)</option>
+            <option>Panjabi (ਪੰਜਾਬੀ)</option>
+          </select>
+        </label>
 
-  <!-- Recording controls -->
-  <button id="recordBtn">🎤 Start Recording</button>
-  <button id="stopBtn" disabled>Stop</button>
-  <button id="sendBtn" disabled>Send</button>
+        <button id="recordBtn" class="ghost">🎙️ Start recording</button>
+        <button id="pauseBtn" class="ghost" hidden disabled>⏸ Pause</button>
+        <button id="sendBtn" class="primary" disabled>↗ Send</button>
+        <span id="timer" class="pill" hidden>00:00</span>
+      </div>
 
-  <!-- Loading indicator (hidden until Send is clicked) -->
-  <div id="loadingBarContainer">
-    <div id="loadingBar">🔄 We are preparing your answers...</div>
-  </div>
+      <div class="status" id="status">Choose both languages → tap <b>Start recording</b>, then tap <b>Send</b>.</div>
+      <!-- Loading bar -->
+      <div id="loadingBar">We are preparing your answers…</div>
 
-  <!-- Result display (initially hidden or empty) -->
-  <p id="transcript"><strong>Transcript:</strong> <span id="transcriptText">--</span></p>
-  <p id="answer"><strong>Answer:</strong> <span id="answerText">--</span></p>
-  <audio id="audioPlayer" controls></audio>
+      <div class="box" id="transcriptBox"><b>Transcript:</b> <span id="transcript">—</span></div>
+      <div class="box" id="answerBox"><b>Answer:</b> <span id="answer">—</span></div>
+      <audio id="player" controls></audio>
+    </div>
 
-  <script>
-    // JavaScript for recording and sending
+    <script>
+      // Use your Render API from anywhere (e.g., GitHub Pages)
+      const API_BASE = "https://india-therapist-chatbot.onrender.com";
 
-    let mediaRecorder;
-    let audioChunks = [];
-    let currentStream = null;
+      const recordBtn = document.getElementById('recordBtn');
+      const pauseBtn  = document.getElementById('pauseBtn');
+      const sendBtn   = document.getElementById('sendBtn');
+      const statusEl  = document.getElementById('status');
+      const transcriptEl = document.getElementById('transcript');
+      const answerEl     = document.getElementById('answer');
+      const player       = document.getElementById('player');
+      const speakLangSel = document.getElementById('speakLang');
+      const answerLangSel= document.getElementById('answerLang');
+      const timerBadge   = document.getElementById('timer');
+      const transcriptBox = document.getElementById('transcriptBox');
+      const answerBox    = document.getElementById('answerBox');
+      const loadingBar   = document.getElementById('loadingBar');
 
-    // Get microphone permission and stream upfront (to avoid delay on first click)
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => {
-        currentStream = stream;
-        mediaRecorder = new MediaRecorder(stream);
-        // Capture audio data
-        mediaRecorder.ondataavailable = e => {
-          if (e.data.size > 0) {
-            audioChunks.push(e.data);
-          }
-        };
-        // When recording stops, assemble the audio blob
-        mediaRecorder.onstop = () => {
-          // Enable Send button now that we have a recording
-          sendBtn.disabled = false;
-          // Reset record button text for next recording session
-          recordBtn.textContent = "🎤 Start Recording";
-        };
-      })
-      .catch(err => {
-        console.error("Microphone access error:", err);
-        alert("Could not access microphone. Please check permissions.");
+      let mediaRecorder, chunks = [], isRecording = false, startTs = 0, tickInt = null, lastBlob = null;
+
+      function validateLangs() {
+        const ok = speakLangSel.value && answerLangSel.value;
+        recordBtn.disabled = !ok;
+        // Only enable send if we have a recording blob and languages selected
+        sendBtn.disabled = !ok || !lastBlob;
+        return ok;
+      }
+
+      speakLangSel.addEventListener('change', validateLangs);
+      answerLangSel.addEventListener('change', validateLangs);
+
+      async function getStream() {
+        try {
+          return await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch {
+          alert("Microphone permission is required.");
+          throw new Error("no-mic");
+        }
+      }
+
+      function fmt(sec) {
+        const m = String(Math.floor(sec/60)).padStart(2,'0');
+        const s = String(Math.floor(sec%60)).padStart(2,'0');
+        return `${m}:${s}`;
+      }
+
+      function startTimer() {
+        timerBadge.hidden = false;
+        startTs = Date.now();
+        tickInt = setInterval(() => {
+          const sec = (Date.now() - startTs)/1000;
+          timerBadge.textContent = fmt(sec);
+        }, 250);
+      }
+
+      function stopTimer() {
+        clearInterval(tickInt);
+        tickInt = null;
+      }
+
+      async function toggleRecording() {
+        if (!validateLangs()) {
+          statusEl.textContent = "Please select both languages first.";
+          return;
+        }
+        if (!isRecording) {
+          // start
+          statusEl.textContent = 'Recording…';
+          const stream = await getStream();
+          chunks = [];
+          mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+          mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+          mediaRecorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'audio/webm' });
+            lastBlob = blob;
+            if (blob.size < 5000) {
+              statusEl.textContent = 'Too short. Record at least 1 second.';
+              sendBtn.disabled = true;
+            } else {
+              statusEl.textContent = 'Recording saved. Now tap “Send”.';
+              sendBtn.disabled = !validateLangs();
+            }
+          };
+          mediaRecorder.start();
+          isRecording = true;
+          recordBtn.textContent = "⏹ Stop";
+          // enable pause/resume button
+          pauseBtn.hidden = false;
+          pauseBtn.disabled = false;
+          pauseBtn.textContent = "⏸ Pause";
+          startTimer();
+        } else {
+          // stop
+          stopTimer();
+          timerBadge.hidden = true;
+          statusEl.textContent = 'Processing recording…';
+          isRecording = false;
+          recordBtn.textContent = "🎙️ Start recording";
+          // disable pause button
+          pauseBtn.hidden = true;
+          pauseBtn.disabled = true;
+          try { mediaRecorder.stop(); } catch {}
+        }
+      }
+
+      pauseBtn.addEventListener('click', () => {
+        if (!mediaRecorder) return;
+        if (mediaRecorder.state === 'recording') {
+          mediaRecorder.pause();
+          pauseBtn.textContent = "▶️ Resume";
+          statusEl.textContent = 'Paused. Tap Resume to continue or Stop to finish.';
+        } else if (mediaRecorder.state === 'paused') {
+          mediaRecorder.resume();
+          pauseBtn.textContent = "⏸ Pause";
+          statusEl.textContent = 'Recording…';
+        }
       });
 
-    // Record/Pause/Resume button logic
-    recordBtn.addEventListener("click", () => {
-      if (!mediaRecorder) return;  // if mediaRecorder not initialized
-      if (mediaRecorder.state === "inactive") {
-        // Start a new recording
-        audioChunks = [];  // reset previous chunks
-        mediaRecorder.start();
-        recordBtn.textContent = "⏸ Pause";
-        stopBtn.disabled = false;
-        sendBtn.disabled = true;   // disable send until recording is stopped
-      } else if (mediaRecorder.state === "recording") {
-        // Pause the ongoing recording
-        mediaRecorder.pause();
-        recordBtn.textContent = "▶️ Resume";
-      } else if (mediaRecorder.state === "paused") {
-        // Resume the paused recording
-        mediaRecorder.resume();
-        recordBtn.textContent = "⏸ Pause";
-      }
-    });
+      async function sendAudio() {
+        if (!lastBlob) { statusEl.textContent = "Please record something first."; return; }
+        if (!validateLangs()) { statusEl.textContent = "Please select both languages."; return; }
 
-    // Stop button logic
-    stopBtn.addEventListener("click", () => {
-      if (mediaRecorder && (mediaRecorder.state === "recording" || mediaRecorder.state === "paused")) {
-        mediaRecorder.stop();
-        stopBtn.disabled = true;
-        // After stopping, recordBtn will be reset in onstop handler
-      }
-    });
+        // Hide transcript and answer boxes and audio player, show loading bar
+        transcriptBox.style.display = 'none';
+        answerBox.style.display   = 'none';
+        player.style.display      = 'none';
+        loadingBar.style.display  = 'block';
 
-    // Send button logic – sending the recorded audio to the server
-    sendBtn.addEventListener("click", async () => {
-      if (audioChunks.length === 0) return;  // nothing to send
-      // Show loading indicator and hide previous results
-      document.getElementById("loadingBarContainer").style.display = "block";
-      document.getElementById("transcript").style.display = "none";
-      document.getElementById("answer").style.display = "none";
-      document.getElementById("audioPlayer").style.display = "none";
+        statusEl.textContent = ""; // clear status text
 
-      // Prepare the audio blob to send
-      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });  // or "audio/wav" depending on API
-      const formData = new FormData();
-      formData.append("file", audioBlob, "recording.webm");
-      formData.append("language", languageSelect.value);  // include selected language if needed
+        const fd = new FormData();
+        fd.append('audio', lastBlob, 'speech.webm');
+        fd.append('speakLanguage',  speakLangSel.value);
+        fd.append('answerLanguage', answerLangSel.value);
 
-      try {
-        // POST to the Render.com API endpoint (replace URL with actual endpoint)
-        const response = await fetch("<YOUR_RENDER_API_ENDPOINT>", {
-          method: "POST",
-          body: formData
-        });
-        const result = await response.json();
-        // Hide loading bar
-        document.getElementById("loadingBarContainer").style.display = "none";
-        // Show transcript and answer text
-        document.getElementById("transcriptText").textContent = result.transcript || "(No transcript)";
-        document.getElementById("answerText").textContent = result.answer || "(No answer)";
-        document.getElementById("transcript").style.display = "block";
-        document.getElementById("answer").style.display = "block";
-        // Prepare audio playback of the answer (if provided by API)
-        if (result.audioUrl) {
-          const audioPlayer = document.getElementById("audioPlayer");
-          audioPlayer.src = result.audioUrl;
-          audioPlayer.style.display = "block";
-          audioPlayer.play().catch(e => console.warn("Auto-play blocked or failed:", e));
+        try {
+          const res = await fetch(`${API_BASE}/api/ask`, { method: 'POST', body: fd });
+          const json = await res.json();
+          if (!res.ok) {
+            const msg = json?.error === 'audio_too_short'
+              ? 'Audio too short. Please record at least 1 second.'
+              : (json?.error || 'Request failed');
+            loadingBar.style.display = 'none';
+            statusEl.textContent = msg;
+            return;
+          }
+          const { transcript, text, audioBase64 } = json;
+          transcriptEl.textContent = transcript || '—';
+          answerEl.textContent     = text || '—';
+          player.src = 'data:audio/mpeg;base64,' + audioBase64;
+          // Hide loading bar and show transcript, answer, and audio
+          loadingBar.style.display = 'none';
+          transcriptBox.style.display = '';
+          answerBox.style.display   = '';
+          player.style.display      = 'block';
+          statusEl.textContent = 'Done! Tap Start to ask again.';
+          // keep lastBlob so they can resend if they want
+        } catch (e) {
+          console.error(e);
+          loadingBar.style.display = 'none';
+          statusEl.textContent = "Network error. Try again.";
         }
-      } catch (error) {
-        console.error("Error during fetch:", error);
-        alert("Sorry, something went wrong while preparing the answer.");
-        // Hide loading bar even on error
-        document.getElementById("loadingBarContainer").style.display = "none";
       }
-    });
-  </script>
-</body>
+
+      recordBtn.addEventListener('click', toggleRecording);
+      sendBtn  .addEventListener('click', sendAudio);
+
+      validateLangs(); // initialize disabled state
+    </script>
+  </body>
 </html>
