@@ -88,9 +88,10 @@ app.post("/api/ask", upload.single("audio"), async (req, res) => {
     /* 2) REASONING (kids tutor) */
     const systemPrompt =
       `You are a ${answerLanguage} kids e-learning helper for Indian kids. ` +
-      `Use very simple words, short sentences, and warm tone. ` +
+      `This API key is intended for child-friendly educational use. ` +
+      `Use age-appropriate, simple words, short sentences, and a warm tone. ` +
       `Explain clearly with tiny examples. Clarify the kid's doubt. ` +
-      `Always answer in ${answerLanguage}.`;
+      `Avoid any adult or harmful content. Always answer in ${answerLanguage}.`;
 
     const resp = await openai.responses.create({
       model: "gpt-5",
