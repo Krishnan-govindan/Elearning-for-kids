@@ -7,10 +7,17 @@
     <style>
       :root { --card:#fff; --ink:#111; --muted:#666; --bd:#e5e7eb; --bg:#f8fafc; }
       * { box-sizing: border-box }
-      body { margin:0; font-family: system-ui, Segoe UI, Roboto, Arial; background: var(--bg); color: var(--ink) }
-      .wrap { max-width: 760px; margin: 2rem auto; background: var(--card); padding: 1.5rem; border:1px solid var(--bd); border-radius: 16px; }
-      h1 { margin: 0 0 1rem }
+      body { margin:0; font-family: system-ui, Segoe UI, Roboto, Arial; background: var(--bg); color: var(--ink); display:flex; min-height:100vh }
+      /* Sidebar */
+      .side { width: 280px; background:#fff; border-right:1px solid var(--bd); padding:1rem; display:flex; flex-direction:column; gap:.75rem }
+      .side h2 { margin:0 0 .5rem; font-size:1.1rem }
+      .chatlist { display:flex; flex-direction:column; gap:.5rem; overflow:auto }
+      .chatitem { padding:.6rem .7rem; border:1px solid var(--bd); border-radius:10px; background:#fafafa; cursor:pointer }
+      .chatitem.active { background:#eef2ff; border-color:#c7d2fe }
       .row { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap }
+      .right { flex:1; }
+      .wrap { max-width: 920px; margin: 1.5rem auto; background: var(--card); padding: 1.5rem; border:1px solid var(--bd); border-radius: 16px; }
+      h1 { margin: 0 0 1rem }
       select, button { padding:.8rem 1.1rem; border-radius:12px; border:1px solid var(--bd); background:#fff }
       button { cursor:pointer; font-weight:600 }
       button.primary { background:#111; color:#fff; }
@@ -21,126 +28,173 @@
       .box { background:#fafafa; border:1px dashed var(--bd); border-radius:12px; padding:.75rem; margin-top:.5rem }
       b { font-weight:600 }
       .pill { padding:.3rem .6rem; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe; font-size:.85rem }
-      #loadingBar {
-        display: none;
-        width: 100%;
-        padding: 0.6rem;
-        background-color: #4CAF50;
-        color: #fff;
-        text-align: center;
-        border-radius: 8px;
-        margin-top: 0.5rem;
-        font-weight: 600;
-      }
-      .spacer { flex: 1 1 auto }
-      .subtle { color: var(--muted); font-size: .9rem; }
-      .chip { padding:.25rem .6rem; border:1px solid var(--bd); border-radius:999px; background:#fff; }
+      #loadingBar { display:none; width:100%; padding:.6rem; background:#4CAF50; color:#fff; text-align:center; border-radius:8px; margin-top:.5rem; font-weight:600 }
+      @media (max-width: 940px){ .side{display:none} .wrap{margin:0; border:0; border-radius:0} body{display:block} }
     </style>
   </head>
   <body>
-    <div class="wrap">
-      <h1>Kid Speak & Learn</h1>
+    <!-- Sidebar with chat history -->
+    <aside class="side">
+      <h2>Chats</h2>
+      <button id="newChatBtn">🆕 New chat</button>
+      <div id="chatList" class="chatlist"></div>
+    </aside>
 
-      <div class="row">
-        <label><b>Speaking language</b><br/>
-          <select id="speakLang" required>
-            <option value="">Select language</option>
-            <option>English</option>
-            <option>Hindi (हिन्दी)</option>
-            <option>Tamil (தமிழ்)</option>
-            <option>Telugu (తెలుగు)</option>
-            <option>Kannada (ಕನ್ನಡ)</option>
-            <option>Malayalam (മലയാളം)</option>
-            <option>Marathi (मराठी)</option>
-            <option>Gujarati (ગુજરાતી)</option>
-            <option>Bengali (বাংলা)</option>
-            <option>Panjabi (ਪੰਜਾਬੀ)</option>
-          </select>
-        </label>
+    <!-- Main panel -->
+    <main class="right">
+      <div class="wrap">
+        <h1>Kid Speak & Learn</h1>
 
-        <label><b>Answer language</b><br/>
-          <select id="answerLang" required>
-            <option value="">Select language</option>
-            <option>English</option>
-            <option>Hindi (हिन्दी)</option>
-            <option>Tamil (தமிழ்)</option>
-            <option>Telugu (తెలుగు)</option>
-            <option>Kannada (ಕನ್ನಡ)</option>
-            <option>Malayalam (മലയാളം)</option>
-            <option>Marathi (मराठी)</option>
-            <option>Gujarati (ગુજરાતી)</option>
-            <option>Bengali (বাংলা)</option>
-            <option>Panjabi (ਪੰਜਾਬੀ)</option>
-          </select>
-        </label>
+        <div class="row">
+          <label><b>Speaking language</b><br/>
+            <select id="speakLang" required>
+              <option value="">Select language</option>
+              <option>English</option>
+              <option>Hindi (हिन्दी)</option>
+              <option>Tamil (தமிழ்)</option>
+              <option>Telugu (తెలుగు)</option>
+              <option>Kannada (ಕನ್ನಡ)</option>
+              <option>Malayalam (മലയാളം)</option>
+              <option>Marathi (मराठी)</option>
+              <option>Gujarati (ગુજરાતી)</option>
+              <option>Bengali (বাংলা)</option>
+              <option>Panjabi (ਪੰਜਾਬੀ)</option>
+            </select>
+          </label>
 
-        <span class="spacer"></span>
+          <label><b>Answer language</b><br/>
+            <select id="answerLang" required>
+              <option value="">Select language</option>
+              <option>English</option>
+              <option>Hindi (हिन्दी)</option>
+              <option>Tamil (தமிழ்)</option>
+              <option>Telugu (తెలుగు)</option>
+              <option>Kannada (ಕನ್ನಡ)</option>
+              <option>Malayalam (മലയാളം)</option>
+              <option>Marathi (मराठी)</option>
+              <option>Gujarati (ગુજરાતી)</option>
+              <option>Bengali (বাংলা)</option>
+              <option>Panjabi (ਪੰਜਾਬੀ)</option>
+            </select>
+          </label>
+        </div>
 
-        <button id="newChatBtn" class="chip">🆕 New chat</button>
+        <div class="row" style="margin-top:.5rem;">
+          <button id="recordBtn" class="ghost" disabled>🎙️ Start recording</button>
+          <button id="pauseBtn" class="ghost" hidden disabled>⏸ Pause</button>
+          <button id="sendBtn" class="primary" disabled>↗ Send</button>
+          <span id="timer" class="pill" hidden>00:00</span>
+        </div>
+
+        <div class="status" id="status">Choose both languages → tap <b>Start recording</b>, then tap <b>Send</b>.</div>
+        <div id="loadingBar">We are preparing your answers…</div>
+
+        <!-- Simple transcript/answer view of latest turn -->
+        <div class="box" id="transcriptBox"><b>Transcript:</b> <span id="transcript">—</span></div>
+        <div class="box" id="answerBox"><b>Answer:</b> <span id="answer">—</span></div>
+        <audio id="player" controls></audio>
       </div>
-
-      <div class="row" style="margin-top:.5rem;">
-        <button id="recordBtn" class="ghost" disabled>🎙️ Start recording</button>
-        <button id="pauseBtn" class="ghost" hidden disabled>⏸ Pause</button>
-        <button id="sendBtn" class="primary" disabled>↗ Send</button>
-        <span id="timer" class="pill" hidden>00:00</span>
-      </div>
-
-      <div class="status subtle" id="status">Choose both languages → tap <b>Start recording</b>, then tap <b>Send</b>.</div>
-      <div id="loadingBar">We are preparing your answers…</div>
-
-      <div class="box" id="transcriptBox"><b>Transcript:</b> <span id="transcript">—</span></div>
-      <div class="box" id="answerBox"><b>Answer:</b> <span id="answer">—</span></div>
-      <audio id="player" controls></audio>
-    </div>
+    </main>
 
     <script>
       const API_BASE = "https://india-therapist-chatbot.onrender.com";
 
-      const recordBtn = document.getElementById('recordBtn');
-      const pauseBtn  = document.getElementById('pauseBtn');
-      const sendBtn   = document.getElementById('sendBtn');
-      const newChatBtn= document.getElementById('newChatBtn');
-      const statusEl  = document.getElementById('status');
-      const transcriptEl = document.getElementById('transcript');
-      const answerEl     = document.getElementById('answer');
-      const player       = document.getElementById('player');
-      const speakLangSel = document.getElementById('speakLang');
-      const answerLangSel= document.getElementById('answerLang');
-      const timerBadge   = document.getElementById('timer');
+      // ---------- DOM ----------
+      const chatList    = document.getElementById('chatList');
+      const newChatBtn  = document.getElementById('newChatBtn');
+      const recordBtn   = document.getElementById('recordBtn');
+      const pauseBtn    = document.getElementById('pauseBtn');
+      const sendBtn     = document.getElementById('sendBtn');
+      const statusEl    = document.getElementById('status');
+      const transcriptEl= document.getElementById('transcript');
+      const answerEl    = document.getElementById('answer');
+      const player      = document.getElementById('player');
+      const speakLangSel= document.getElementById('speakLang');
+      const answerLangSel=document.getElementById('answerLang');
+      const timerBadge  = document.getElementById('timer');
       const transcriptBox= document.getElementById('transcriptBox');
-      const answerBox    = document.getElementById('answerBox');
-      const loadingBar   = document.getElementById('loadingBar');
+      const answerBox   = document.getElementById('answerBox');
+      const loadingBar  = document.getElementById('loadingBar');
 
-      // ---- conversation id (persist per tab) ----
-      let conversationId = localStorage.getItem("kidchat_id") || crypto.randomUUID();
-      localStorage.setItem("kidchat_id", conversationId);
+      // ---------- Local storage helpers ----------
+      const LS_KEY = "kid_chats_v1";
+      function loadAllChats(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)) || []; }catch{ return []; } }
+      function saveAllChats(list){ localStorage.setItem(LS_KEY, JSON.stringify(list)); }
+      function createChat(){
+        const id = crypto.randomUUID();
+        const chat = { id, title: "New chat", createdAt: Date.now(), messages: [] };
+        const list = loadAllChats(); list.unshift(chat); saveAllChats(list);
+        return chat;
+      }
+      function getChat(id){ return loadAllChats().find(c=>c.id===id); }
+      function updateChat(chat){
+        const list = loadAllChats();
+        const idx = list.findIndex(c=>c.id===chat.id);
+        if (idx>=0){ list[idx]=chat; } else { list.unshift(chat); }
+        saveAllChats(list);
+      }
+      function setTitleIfEmpty(chat, firstUserText){
+        if (!firstUserText) return;
+        if (chat.title==="New chat" || !chat.title){
+          chat.title = firstUserText.slice(0, 40) + (firstUserText.length>40 ? "…" : "");
+        }
+      }
 
-      function resetUIForNewChat() {
-        transcriptEl.textContent = "—";
-        answerEl.textContent = "—";
-        player.removeAttribute('src');
-        player.load();
-        transcriptBox.style.display = '';
-        answerBox.style.display = '';
-        loadingBar.style.display = 'none';
-        statusEl.textContent = 'New chat started. Choose languages, record, then send.';
+      // ---------- UI: render chat list ----------
+      let currentChatId = null;
+      function renderChatList(){
+        const list = loadAllChats();
+        chatList.innerHTML = "";
+        list.forEach(chat=>{
+          const div = document.createElement("div");
+          div.className = "chatitem" + (chat.id===currentChatId ? " active":"");
+          const d = new Date(chat.createdAt);
+          const when = d.toLocaleDateString() + " " + d.toLocaleTimeString();
+          div.innerHTML = `<div style="font-weight:600">${chat.title}</div><div style="font-size:.85rem;color:#666">${when}</div>`;
+          div.onclick = ()=>loadChat(chat.id);
+          chatList.appendChild(div);
+        });
+      }
+
+      function loadChat(id){
+        currentChatId = id;
+        renderChatList();
+        const chat = getChat(id);
+        // Show last turn in the simple boxes
+        if (chat && chat.messages.length){
+          const lastUser = [...chat.messages].reverse().find(m=>m.role==="user");
+          const lastAsst = [...chat.messages].reverse().find(m=>m.role==="assistant");
+          transcriptEl.textContent = lastUser?.content || "—";
+          answerEl.textContent = lastAsst?.content || "—";
+        } else {
+          transcriptEl.textContent = "—";
+          answerEl.textContent = "—";
+        }
+        player.removeAttribute("src"); player.load();
+        loadingBar.style.display = "none";
+        statusEl.textContent = "Loaded chat. Record a follow-up or start a New chat.";
         lastBlob = null;
         validateLangs();
       }
 
-      newChatBtn.addEventListener('click', async () => {
-        conversationId = crypto.randomUUID();
-        localStorage.setItem("kidchat_id", conversationId);
-        // tell server to clear (best effort)
-        fetch(`${API_BASE}/api/new`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ conversationId })
-        }).catch(()=>{});
-        resetUIForNewChat();
+      // Boot: ensure at least one chat exists
+      (function initChats(){
+        const all = loadAllChats();
+        if (all.length===0){
+          const c = createChat();
+          currentChatId = c.id;
+        } else {
+          currentChatId = all[0].id;
+        }
+        renderChatList();
+      })();
+
+      newChatBtn.addEventListener('click', ()=>{
+        const c = createChat();
+        loadChat(c.id);
       });
 
+      // ---------- Recording (same as before with Pause/Resume) ----------
       let mediaRecorder, chunks = [], isRecording = false, startTs = 0, tickInt = null, lastBlob = null;
 
       function validateLangs() {
@@ -209,6 +263,24 @@
         }
       });
 
+      // ---------- Send to server with history ----------
+      function getHistoryForCurrentChat(limitTurns=6){
+        const chat = getChat(currentChatId);
+        if (!chat) return [];
+        const msgs = chat.messages || [];
+        return msgs.slice(-limitTurns*2); // last N user/assistant pairs
+      }
+
+      function appendTurnToChat(userText, assistantText){
+        const chat = getChat(currentChatId);
+        if (!chat) return;
+        if (userText)  chat.messages.push({ role:"user",      content:userText });
+        if (assistantText) chat.messages.push({ role:"assistant", content:assistantText });
+        setTitleIfEmpty(chat, userText);
+        updateChat(chat);
+        renderChatList();
+      }
+
       async function sendAudio() {
         if (!lastBlob) { statusEl.textContent = "Please record something first."; return; }
         if (!validateLangs()) { statusEl.textContent = "Please select both languages."; return; }
@@ -224,30 +296,32 @@
         fd.append('audio', lastBlob, 'speech.webm');
         fd.append('speakLanguage',  speakLangSel.value);
         fd.append('answerLanguage', answerLangSel.value);
-        fd.append('conversationId', conversationId);
+        fd.append('conversationId', currentChatId);
+        fd.append('history', JSON.stringify(getHistoryForCurrentChat(6)));
 
         try {
           const res = await fetch(`${API_BASE}/api/ask`, { method: 'POST', body: fd });
           const json = await res.json();
           if (!res.ok) {
             loadingBar.style.display = 'none';
-            const msg = json?.error === 'audio_too_short'
-              ? 'Audio too short. Please record at least 1 second.'
-              : (json?.message || json?.error || 'Request failed');
-            statusEl.textContent = msg;
+            statusEl.textContent = json?.message || json?.error || 'Request failed';
             return;
           }
           const { transcript, text, audioBase64 } = json;
+
+          // Save the full turn locally
+          appendTurnToChat(transcript || "", text || "");
+
+          // Update UI with latest turn
           transcriptEl.textContent = transcript || '—';
           answerEl.textContent     = text || '—';
           player.src = 'data:audio/mpeg;base64,' + audioBase64;
 
-          // Show results
           loadingBar.style.display = 'none';
           transcriptBox.style.display = '';
           answerBox.style.display   = '';
           player.style.display      = 'block';
-          statusEl.textContent = 'Done! Ask a follow-up or start a New chat.';
+          statusEl.textContent = 'Done! Ask a follow-up or switch chats.';
         } catch (e) {
           console.error(e);
           loadingBar.style.display = 'none';
@@ -256,7 +330,13 @@
       }
       sendBtn.addEventListener('click', sendAudio);
 
-      // initial state
+      // Load first chat on startup
+      (function boot(){
+        const all = loadAllChats();
+        loadChat(all[0].id);
+      })();
+
+      // Initial control states
       validateLangs();
     </script>
   </body>
