@@ -7,66 +7,35 @@ import { toFile } from "openai/uploads";
 
 const app = express();
 
-/* ----------------------- CONFIG ----------------------- */
 const STT_MODEL = process.env.STT_MODEL || "whisper-1";
 const CLEAN_TRANSCRIPT = String(process.env.CLEAN_TRANSCRIPT || "false").toLowerCase() === "true";
 
-/* CORS */
 app.use(cors({
   origin: [
     "https://india-therapist-chatbot.onrender.com",
     "https://krishnan-govindan.github.io"
   ],
-  methods: ["GET","POST"],
+  methods: ["GET", "POST"],
 }));
 
 const upload = multer({ storage: multer.memoryStorage() });
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-/* Serve static files from repo root */
 app.use(express.static("."));
 app.use(express.json());
 
-/* UI label -> ISO code for STT language hint */
 const ISO = {
   English:"en", Hindi:"hi", Tamil:"ta", Telugu:"te", Kannada:"kn",
   Malayalam:"ml", Marathi:"mr", Gujarati:"gu", Bengali:"bn",
   Punjabi:"pa", Panjabi:"pa"
 };
 
-/* ----------------------- SIMPLE IN-MEMORY STORE -----------------------
-   NOTE: This resets when the server restarts (Render free plan).
-   For persistence, plug a KV/Redis later.
------------------------------------------------------------------------- */
-const chats = new Map(); // conversationId -> [{role, content}]
-const MAX_TURNS = 6;     // keep last 6 Q&A pairs (≈ 12 messages)
-
-function getHistory(id) {
-  return chats.get(id) || [];
-}
-function saveTurn(id, userText, assistantText) {
-  const h = chats.get(id) || [];
-  h.push({ role: "user", content: userText });
-  h.push({ role: "assistant", content: assistantText });
-  // trim to last MAX_TURNS*2 messages
-  const trimmed = h.slice(-MAX_TURNS * 2);
-  chats.set(id, trimmed);
-}
-
-/* ----------------------- ROUTES ----------------------- */
-
-// Clear a conversation explicitly
-app.post("/api/new", (req, res) => {
-  const { conversationId } = req.body || {};
-  if (conversationId && chats.has(conversationId)) chats.delete(conversationId);
-  res.json({ ok: true });
-});
-
 app.post("/api/ask", upload.single("audio"), async (req, res) => {
   try {
     const answerLanguage = (req.body.answerLanguage || "").trim();
     const speakLanguage  = (req.body.speakLanguage  || "").trim();
-    const conversationId = (req.body.conversationId || "").trim(); // required from client
+    const conversationId = (req.body.conversationId || "").trim();
 
     if (!conversationId) {
       return res.status(400).json({ error: "missing_conversation", message: "No conversationId provided." });
@@ -78,17 +47,31 @@ app.post("/api/ask", upload.single("audio"), async (req, res) => {
       return res.status(400).json({ error: "audio_too_short", message: "Please record at least 1 second of audio." });
     }
 
-    /* 1) SPEECH -> TEXT (force language) */
+    // Parse optional history sent by client
+    let clientHistory = [];
+    if (req.body.history) {
+      try {
+        const parsed = JSON.parse(req.body.history);
+        // expect [{role:"user"|"assistant", content:"..."}]
+        if (Array.isArray(parsed)) clientHistory = parsed;
+      } catch (_) {
+        // ignore bad history
+      }
+    }
+    // Keep last 6 turns (≈ 12 msgs)
+    const MAX_TURNS = 6;
+    const safeHistory = clientHistory.slice(-MAX_TURNS * 2);
+
+    // 1) Speech -> Text
     const stt = await openai.audio.transcriptions.create({
       file: await toFile(req.file.buffer, "speech.webm", { type: "audio/webm" }),
       model: STT_MODEL,
       language: ISO[speakLanguage] || undefined,
       prompt: `This is a child speaking ${speakLanguage} about school topics. Keep output in ${speakLanguage}.`
     });
-
     let userText = (stt.text || "").trim();
 
-    /* Optional cleanup */
+    // Optional cleanup
     if (CLEAN_TRANSCRIPT && userText) {
       const cleaned = await openai.responses.create({
         model: "gpt-5",
@@ -100,17 +83,16 @@ app.post("/api/ask", upload.single("audio"), async (req, res) => {
       userText = (cleaned.output_text || userText).trim();
     }
 
-    /* 2) Build messages with HISTORY + kid-safe system prompt */
+    // 2) Reasoning with history
     const systemPrompt =
       `You are a ${answerLanguage} kids e-learning helper for Indian kids. ` +
-      `Use very simple words, short sentences, and a warm, encouraging tone. ` +
-      `Explain clearly with tiny examples. If the kid asks follow-up questions, use the chat history to stay on topic. ` +
-      `Avoid any adult, harmful, or unsafe content. Always answer in ${answerLanguage}.`;
+      `This API key is for child-friendly education. Use very simple words, short sentences, warm tone. ` +
+      `Use the chat history to keep continuity and clarify doubts with tiny examples. ` +
+      `Avoid adult/harmful content. Always answer in ${answerLanguage}.`;
 
-    const history = getHistory(conversationId); // [{role, content}, ...]
     const messages = [
       { role: "system", content: systemPrompt },
-      ...history,
+      ...safeHistory,
       { role: "user", content: userText }
     ];
 
@@ -120,10 +102,7 @@ app.post("/api/ask", upload.single("audio"), async (req, res) => {
     });
     const assistantText = (resp.output_text || "").trim();
 
-    // Save this turn to memory
-    saveTurn(conversationId, userText, assistantText);
-
-    /* 3) TEXT -> SPEECH (answer audio) */
+    // 3) TTS
     const speech = await openai.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "alloy",
@@ -132,8 +111,7 @@ app.post("/api/ask", upload.single("audio"), async (req, res) => {
     });
     const base64Audio = Buffer.from(await speech.arrayBuffer()).toString("base64");
 
-    return res.json({
-      stt_model: STT_MODEL,
+    res.json({
       conversationId,
       transcript: userText,
       text: assistantText,
@@ -143,16 +121,15 @@ app.post("/api/ask", upload.single("audio"), async (req, res) => {
   } catch (err) {
     const msg = (err?.error?.message || err?.message || "").toLowerCase();
     if (msg.includes("shorter than") || msg.includes("too short")) {
-      return res.status(400).json({ error: "audio_too_short", message: "Audio too short. Please hold for at least 1 second." });
+      return res.status(400).json({ error: "audio_too_short", message: "Audio too short. Please record at least 1 second." });
     }
     if (msg.includes("invalid") && msg.includes("language")) {
-      return res.status(400).json({ error: "invalid_language", message: "Unsupported language code. Please pick a different language." });
+      return res.status(400).json({ error: "invalid_language", message: "Unsupported language code." });
     }
     console.error("API error:", err);
     return res.status(500).json({ error: "processing_failed", message: "Something went wrong while processing audio." });
   }
 });
 
-/* ----------------------- START ----------------------- */
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Server running on port ${port}. STT_MODEL=${STT_MODEL} CLEAN_TRANSCRIPT=${CLEAN_TRANSCRIPT}`));
