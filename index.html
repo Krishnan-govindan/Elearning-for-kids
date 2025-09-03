@@ -4,117 +4,397 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <title>Kid Speak &amp; Learn</title>
+    <!--
+      This page defines a simple single‑page application for the Kid Speak & Learn
+      experience.  The layout borrows visual cues from a modern chat interface
+      but is implemented with plain HTML and CSS so it can live alongside the
+      existing Firebase/Firestore client logic without requiring a React build
+      step.  All identifiers referenced by the accompanying JavaScript are
+      preserved (e.g. #chatList, #recordBtn, #textInput) so the original
+      behaviour continues to work.
+    -->
     <style>
-      :root { --card:#fff; --ink:#111; --muted:#666; --bd:#e5e7eb; --bg:#f8fafc; }
-      * { box-sizing: border-box }
-      body { margin:0; font-family: system-ui, Segoe UI, Roboto, Arial; background: var(--bg); color: var(--ink); display:flex; flex-direction:column; min-height:100vh }
-      /* Auth bar */
-      #authBar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.6rem 1rem; border-bottom:1px solid var(--bd); background:#fff; }
-      #authBar .user-info { display:flex; align-items:center; gap:.5rem; }
-      #authBar img { width:28px; height:28px; border-radius:50%; border:1px solid var(--bd); display:none; }
-      #authBar .user-name { font-weight:600; }
-      #authBar .user-email { color:#666; font-size:.9rem; }
-      /* Layout */
-      .main-container { flex:1; display:flex; min-height:0; }
-      /* Sidebar */
-      .side { width: 280px; background:#fff; border-right:1px solid var(--bd); padding:1rem; display:flex; flex-direction:column; gap:.75rem; overflow:auto }
-      .side h2 { margin:0 0 .5rem; font-size:1.1rem }
-      .chatlist { display:flex; flex-direction:column; gap:.5rem; overflow:auto }
-      .chatitem { padding:.6rem .7rem; border:1px solid var(--bd); border-radius:10px; background:#fafafa; cursor:pointer }
-      .chatitem.active { background:#eef2ff; border-color:#c7d2fe }
-      .row { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap }
-      .right { flex:1; overflow-y:auto; }
-      .wrap { max-width: 920px; margin: 1.5rem auto; background: var(--card); padding: 1.5rem; border:1px solid var(--bd); border-radius: 16px; }
-      h1 { margin: 0 0 1rem }
-      select, button, input, textarea { padding:.8rem 1.1rem; border-radius:12px; border:1px solid var(--bd); background:#fff }
-      button { cursor:pointer; font-weight:600 }
-      button.primary { background:#111; color:#fff; }
-      button.ghost { background:#fff; }
-      button[disabled] { opacity:.55; cursor:not-allowed }
-      .status { color: var(--muted); margin:.5rem 0 1rem }
-      audio { width:100%; margin-top:.75rem }
-      .box { background:#fafafa; border:1px dashed var(--bd); border-radius:12px; padding:.75rem; margin-top:.5rem }
-      b { font-weight:600 }
-      .pill { padding:.3rem .6rem; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe; font-size:.85rem }
-      #loadingBar { display:none; width:100%; padding:.6rem; background:#4CAF50; color:#fff; text-align:center; border-radius:8px; margin-top:.5rem; font-weight:600 }
-      /* Chat thread area */
-      .thread {
-        display:flex;
-        flex-direction:column;
-        gap:.5rem;
-        max-height:50vh;
-        overflow-y:auto;
-        background:#f8fafc;
-        border:1px solid var(--bd);
-        border-radius:12px;
-        padding:1rem;
-        box-shadow:0 4px 6px rgba(0,0,0,0.05);
+      :root {
+        /* Base palette reused from the original application */
+        --card:   #fff;
+        --ink:    #111;
+        --muted:  #666;
+        --bd:     #e5e7eb;
+        --bg:     #f8fafc;
+        --primary:         #111;
+        --primary-contrast:#fff;
+        --accent:          #f1f5f9;
       }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: system-ui, Segoe UI, Roboto, Arial;
+        background: var(--bg);
+        color: var(--ink);
+        display: flex;
+        flex-direction: column;
+      }
+      /* Authentication bar at the very top */
+      #authBar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .5rem;
+        padding: .6rem 1rem;
+        border-bottom: 1px solid var(--bd);
+        background: #fff;
+        z-index: 10;
+      }
+      #authBar .user-info {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+      }
+      #authBar img {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 1px solid var(--bd);
+        display: none;
+      }
+      #authBar .user-name { font-weight: 600; }
+      #authBar .user-email { color: var(--muted); font-size: .9rem; }
+      /* Overall layout */
+      .app-container {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+        overflow: hidden;
+      }
+      /* Sidebar area */
+      .side {
+        width: 280px;
+        background: var(--card);
+        border-right: 1px solid var(--bd);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .side h1 {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 600;
+      }
+      .side .header {
+        padding: 1rem;
+        border-bottom: 1px solid var(--bd);
+      }
+      .side .header .logo {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        margin-bottom: .75rem;
+      }
+      .side .header .logo-icon {
+        width: 32px;
+        height: 32px;
+        background: var(--primary);
+        color: var(--primary-contrast);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .9rem;
+      }
+      /* Language selection card */
+      .lang-card {
+        cursor: pointer;
+        padding: .5rem .75rem;
+        background: var(--bg);
+        border: 1px solid transparent;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: background .15s, border-color .15s;
+      }
+      .lang-card:hover {
+        background: var(--accent);
+        border-color: var(--bd);
+      }
+      .lang-settings {
+        margin-top: .75rem;
+        padding: .75rem;
+        background: var(--bg);
+        border: 1px solid var(--bd);
+        border-radius: 8px;
+      }
+      .lang-settings label {
+        font-size: .75rem;
+        color: var(--muted);
+        display: block;
+        margin-bottom: .25rem;
+      }
+      .lang-settings select {
+        width: 100%;
+        padding: .5rem;
+        border: 1px solid var(--bd);
+        border-radius: 6px;
+        background: #fff;
+        font-size: .9rem;
+      }
+      /* Chat history list */
+      .chat-list-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: .5rem;
+      }
+      .chatitem {
+        padding: .6rem .7rem;
+        border: 1px solid var(--bd);
+        border-radius: 10px;
+        background: #fafafa;
+        cursor: pointer;
+        transition: background .15s, border-color .15s;
+      }
+      .chatitem:hover {
+        background: #f1f5f9;
+      }
+      .chatitem.active {
+        background: #eef2ff;
+        border-color: #c7d2fe;
+      }
+      /* User profile at bottom of sidebar */
+      .user-profile {
+        padding: 1rem;
+        border-top: 1px solid var(--bd);
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+      }
+      .user-profile .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(17, 17, 17, .1);
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .9rem;
+      }
+      .user-profile .info {
+        flex: 1;
+        min-width: 0;
+      }
+      .user-profile .info .name {
+        font-size: .9rem;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .user-profile .info .email {
+        font-size: .75rem;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* Main conversation panel */
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .status {
+        padding: 0.5rem 1rem;
+        font-size: .9rem;
+        color: var(--muted);
+      }
+      #loadingBar {
+        display: none;
+        width: 100%;
+        padding: .6rem;
+        background: #4CAF50;
+        color: #fff;
+        text-align: center;
+        border-radius: 8px;
+        margin: 0 1rem .5rem;
+        font-weight: 600;
+      }
+      #chatThread {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: .75rem;
+        background: var(--bg);
+        border-top: 1px solid var(--bd);
+        border-bottom: 1px solid var(--bd);
+      }
+      /* Message bubbles */
       .msg {
-        max-width:80%;
-        padding:.6rem 1rem;
-        border-radius:16px;
-        box-shadow:0 2px 4px rgba(0,0,0,0.05);
-        line-height:1.4;
-        word-break:break-word;
+        max-width: 70%;
+        padding: .6rem 1rem;
+        border-radius: 16px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        line-height: 1.4;
+        word-break: break-word;
+        font-size: .95rem;
       }
       .msg.user {
-        align-self:flex-end;
+        align-self: flex-end;
         background: linear-gradient(135deg, #dbeafe, #c7d2fe);
-        border-top-right-radius:0;
+        border-top-right-radius: 0;
       }
       .msg.assistant {
-        align-self:flex-start;
+        align-self: flex-start;
         background: linear-gradient(135deg, #fef3c7, #fde68a);
-        border-top-left-radius:0;
+        border-top-left-radius: 0;
       }
       /* Suggestions */
-      .suggestions {
-        display:flex;
-        flex-wrap:wrap;
-        gap:.5rem;
+      #suggestions {
+        display: none;
+        padding: .5rem 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
       }
       .suggestion-btn {
-        padding:.4rem .9rem;
-        border-radius:999px;
-        background:#f1f5f9;
-        border:1px solid var(--bd);
-        cursor:pointer;
-        font-size:.85rem;
-        transition:background .2s;
+        padding: .4rem .9rem;
+        border-radius: 999px;
+        background: #f1f5f9;
+        border: 1px solid var(--bd);
+        cursor: pointer;
+        font-size: .85rem;
+        transition: background .2s;
       }
-      .suggestion-btn:hover { background:#e2e8f0; }
-      /* Text input area */
-      #textRow { display:flex; gap:.5rem; margin-top:1rem; }
-      #textInput { flex:1; resize:vertical; min-height:2rem; max-height:6rem; border-radius:12px; padding:.6rem .8rem; font-size:1rem; }
-      #loginRequired { display:none; text-align:center; margin:1rem 0; padding:1rem; border:1px solid var(--bd); border-radius:12px; background:#fff; }
-      /* Mobile toggle hidden by default */
-      .mobile-toggle { display:none; }
-      @media (max-width: 940px){
-        .side{
-          display:none;
-          position:fixed;
-          top:0;
-          left:0;
-          width:75%;
-          height:100vh;
-          z-index:999;
-          background:#fff;
-          border-right:1px solid var(--bd);
-          overflow:auto;
-          transition:transform .3s ease-out;
+      .suggestion-btn:hover { background: #e2e8f0; }
+      /* Player */
+      #player {
+        margin: 0 1rem 1rem;
+        width: calc(100% - 2rem);
+      }
+      /* Input area */
+      .input-panel {
+        border-top: 1px solid var(--bd);
+        padding: 1rem;
+      }
+      .input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: flex-end;
+        gap: .5rem;
+        padding: .6rem;
+        background: rgba(0,0,0,0.02);
+        border: 1px solid var(--bd);
+        border-radius: 16px;
+      }
+      #recordBtn {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: none;
+        background: var(--primary);
+        color: var(--primary-contrast);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+      }
+      #recordBtn.recording {
+        background: #dc2626;
+        animation: pulse 1s infinite;
+      }
+      @keyframes pulse {
+        0%   { transform: scale(1); }
+        50%  { transform: scale(1.05); }
+        100% { transform: scale(1); }
+      }
+      #pauseBtn {
+        display: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: var(--primary-contrast);
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+      }
+      #sendBtn, #sendTextBtn {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        background: var(--primary);
+        color: var(--primary-contrast);
+        transition: opacity .2s;
+      }
+      #sendBtn[disabled], #sendTextBtn[disabled] { opacity: .5; cursor: not-allowed; }
+      #textInput {
+        flex: 1;
+        min-height: 24px;
+        max-height: 120px;
+        resize: none;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-size: .95rem;
+      }
+      #timer {
+        position: absolute;
+        top: -1.6rem;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: .2rem .6rem;
+        background: #dc2626;
+        color: #fff;
+        border-radius: 999px;
+        font-size: .75rem;
+        display: none;
+      }
+      /* Hidden elements used by the script to maintain compatibility */
+      #transcript, #answer {
+        display: none;
+      }
+      /* Mobile responsiveness: reuse existing classes */
+      @media (max-width: 940px) {
+        .side {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 75%;
+          height: 100vh;
+          z-index: 999;
+          background: #fff;
+          border-right: 1px solid var(--bd);
+          overflow: auto;
+          transition: transform .3s ease-out;
+          transform: translateX(-100%);
         }
-        .side.open {
-          display:block;
+        .side.open { transform: translateX(0); }
+        .mobile-toggle {
+          display: inline-block;
+          margin: .5rem 1rem;
+          cursor: pointer;
+          background: var(--card);
+          border: 1px solid var(--bd);
+          padding: .5rem .75rem;
+          border-radius: 8px;
         }
-        .wrap{margin:0; border:0; border-radius:0; padding:1rem; }
-        body{flex-direction:column; overflow-x:hidden; }
-        .mobile-toggle { display:inline-block; }
       }
     </style>
   </head>
   <body>
-    <!-- Authentication bar -->
+    <!-- Authentication bar: displays sign in/out and user details -->
     <div id="authBar">
       <div class="user-info">
         <img id="userPhoto" src="" alt="User" />
@@ -126,22 +406,28 @@
         <button id="logoutBtn" style="display:none">🚪 Sign out</button>
       </div>
     </div>
-    <div id="loginRequired">Please sign in to start using Kid Speak &amp; Learn.</div>
-    <!-- Mobile toggle for sidebar -->
-    <button id="toggleSidebarBtn" class="ghost mobile-toggle" style="display:none;margin:.5rem 1rem">☰ Chats</button>
-    <div class="main-container">
-      <!-- Sidebar with chat history -->
+    <div id="loginRequired" style="display:none; text-align:center; margin:1rem 0; padding:1rem; border:1px solid var(--bd); border-radius:12px; background:#fff;">
+      Please sign in to start using Kid Speak &amp; Learn.
+    </div>
+    <button id="toggleSidebarBtn" class="mobile-toggle" style="display:none;">☰ Chats</button>
+    <div class="app-container">
+      <!-- Sidebar containing header, language selection, chats and user profile -->
       <aside class="side" id="sidebar">
-        <h2>Chats</h2>
-        <button id="newChatBtn">🆕 New chat</button>
-        <div id="chatList" class="chatlist"></div>
-      </aside>
-      <!-- Main panel -->
-      <main class="right">
-        <div class="wrap">
-          <h1>Kid Speak &amp; Learn</h1>
-          <div class="row">
-            <label><b>Speaking language</b><br/>
+        <div class="header">
+          <div class="logo">
+            <div class="logo-icon">💬</div>
+            <h1>Kid Speak &amp; Learn</h1>
+          </div>
+          <div id="langCard" class="lang-card">
+            <div style="display:flex; align-items:center; gap:.5rem;">
+              <span>🌐</span>
+              <span id="langLabel">English → English</span>
+            </div>
+            <span style="font-size:.9rem;">▼</span>
+          </div>
+          <div id="langSettings" class="lang-settings" style="display:none;">
+            <div style="margin-bottom:.75rem;">
+              <label for="speakLang">Speaking</label>
               <select id="speakLang" required>
                 <option value="">Select language</option>
                 <option>English</option>
@@ -155,8 +441,9 @@
                 <option>Bengali (বাংলা)</option>
                 <option>Panjabi (ਪੰਜਾਬੀ)</option>
               </select>
-            </label>
-            <label><b>Answer language</b><br/>
+            </div>
+            <div>
+              <label for="answerLang">Answer</label>
               <select id="answerLang" required>
                 <option value="">Select language</option>
                 <option>English</option>
@@ -170,36 +457,57 @@
                 <option>Bengali (বাংলা)</option>
                 <option>Panjabi (ਪੰਜਾਬੀ)</option>
               </select>
-            </label>
+            </div>
           </div>
-          <div class="row" style="margin-top:.5rem;">
-            <button id="recordBtn" class="ghost" disabled>🎙️ Start recording</button>
-            <button id="pauseBtn" class="ghost" hidden disabled>⏸ Pause</button>
-            <button id="sendBtn" class="primary" disabled>↗ Send</button>
-            <span id="timer" class="pill" hidden>00:00</span>
+        </div>
+        <div style="flex:1; overflow-y:auto; padding: 1rem;">
+          <div class="chat-list-header">
+            <h3 style="font-size:.9rem; font-weight:600; color: var(--muted); margin:0;">Recent Chats</h3>
+            <button id="newChatBtn" style="background:none; border:none; cursor:pointer; font-size:1.2rem;">➕</button>
           </div>
-          <div class="status" id="status">Choose both languages → tap <b>Start recording</b>, type a question or tap <b>Send</b>.</div>
-          <div id="loadingBar">We are preparing your answers…</div>
-          <!-- Chat thread: messages will appear here -->
-          <div id="chatThread" class="thread"></div>
-          <!-- Suggestions row -->
-          <div id="suggestions" class="suggestions" style="display:none"></div>
-          <audio id="player" controls></audio>
-          <!-- Text chat input -->
-          <div id="textRow">
-            <textarea id="textInput" placeholder="Type your question…" disabled></textarea>
-            <button id="sendTextBtn" class="primary" disabled>➤ Send Text</button>
+          <div id="chatList" class="chatlist" style="display:flex; flex-direction:column; gap:.5rem;"></div>
+        </div>
+        <div class="user-profile">
+          <div class="avatar" id="userAvatar">👤</div>
+          <div class="info">
+            <div class="name" id="profileName"></div>
+            <div class="email" id="profileEmail"></div>
+          </div>
+          <button id="settingsBtn" style="background:none; border:none; cursor:pointer; font-size:1.2rem; color: var(--muted);">⚙️</button>
+        </div>
+      </aside>
+      <!-- Main conversation area -->
+      <main>
+        <div id="status" class="status">Choose both languages → tap <b>Start recording</b>, type a question or tap <b>Send</b>.</div>
+        <div id="loadingBar">We are preparing your answers…</div>
+        <!-- Chat thread -->
+        <div id="chatThread"></div>
+        <!-- Suggestions -->
+        <div id="suggestions"></div>
+        <!-- Audio player -->
+        <audio id="player" controls></audio>
+        <!-- Input panel -->
+        <div class="input-panel">
+          <div class="input-wrapper">
+            <button id="recordBtn" title="Start recording">🎙️</button>
+            <button id="pauseBtn" title="Pause/Resume">⏸</button>
+            <textarea id="textInput" placeholder="Type your message here…" rows="1"></textarea>
+            <button id="sendBtn" title="Send audio" disabled>📤</button>
+            <button id="sendTextBtn" title="Send text" disabled>➤</button>
+            <span id="timer">00:00</span>
           </div>
         </div>
       </main>
     </div>
-    <!-- Firebase + Auth + Firestore -->
+    <!-- Hidden transcript/answer boxes used by the script -->
+    <div id="transcript"></div>
+    <div id="answer"></div>
+    <!-- Firebase and app scripts -->
     <script type="module">
       // Import Firebase SDKs
       import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js';
       import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, getIdToken } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js';
       import { getFirestore, doc, setDoc, updateDoc, collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
-
       // Your web app's Firebase configuration
       const firebaseConfig = {
         apiKey: "AIzaSyARKGvFd051nAxe3lXpkcktBHl46NP38A0",
@@ -252,6 +560,15 @@
           loginBtn.style.display  = 'none';
           logoutBtn.style.display = '';
           loginReqEl.style.display = 'none';
+          // Populate profile in sidebar
+          document.getElementById('profileName').textContent = user.displayName || '';
+          document.getElementById('profileEmail').textContent = user.email || '';
+          if (user.photoURL) {
+            document.getElementById('userAvatar').textContent = '';
+            document.getElementById('userAvatar').style.backgroundImage = `url(${user.photoURL})`;
+            document.getElementById('userAvatar').style.backgroundSize = 'cover';
+            document.getElementById('userAvatar').style.backgroundPosition = 'center';
+          }
           // Fetch chats from Firestore and merge into local storage if none
           await syncChatsFromFirestore(user.uid);
           enableAppControls(true);
@@ -263,42 +580,34 @@
           loginBtn.style.display  = '';
           logoutBtn.style.display = 'none';
           loginReqEl.style.display = '';
+          document.getElementById('profileName').textContent = '';
+          document.getElementById('profileEmail').textContent = '';
+          document.getElementById('userAvatar').style.backgroundImage = '';
+          document.getElementById('userAvatar').textContent = '👤';
           enableAppControls(false);
           window.__auth.lastIdToken = null;
         }
       });
-      // Enable/disable application controls based on auth state
-      function enableAppControls(enable) {
-        const disabled = !enable;
-        document.getElementById('newChatBtn').disabled = disabled;
-        document.getElementById('recordBtn').disabled = disabled || !validateLangs();
-        document.getElementById('sendBtn').disabled = disabled || !validateLangs() || !lastBlob;
-        document.getElementById('textInput').disabled = disabled;
-        document.getElementById('sendTextBtn').disabled = disabled;
+      // Toggle the language settings view
+      const langCard = document.getElementById('langCard');
+      const langSettings = document.getElementById('langSettings');
+      const langLabel = document.getElementById('langLabel');
+      langCard.addEventListener('click', () => {
+        const open = langSettings.style.display !== 'none';
+        langSettings.style.display = open ? 'none' : 'block';
+      });
+      // Update the language label when selections change
+      const speakSelect = document.getElementById('speakLang');
+      const answerSelect = document.getElementById('answerLang');
+      function updateLangLabel() {
+        const speak = speakSelect.value || 'Speaking';
+        const ans   = answerSelect.value || 'Answer';
+        langLabel.textContent = speak + ' → ' + ans;
       }
-      // Sync chats from Firestore into local storage if none exist
-      async function syncChatsFromFirestore(uid) {
-        const local = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
-        if (local && local.length) return; // Already has local chats
-        try {
-          const chatsCol = collection(db, 'users', uid, 'chats');
-          const chatsSnap = await getDocs(chatsCol);
-          const newList = [];
-          for (const chatDoc of chatsSnap.docs) {
-            const chatId = chatDoc.id;
-            const data = chatDoc.data();
-            const messagesCol = collection(db, 'users', uid, 'chats', chatId, 'messages');
-            const msgSnap = await getDocs(query(messagesCol, orderBy('createdAt', 'asc')));
-            const messages = msgSnap.docs.map(d => d.data());
-            newList.push({ id: chatId, title: data.title || 'Chat', createdAt: data.createdAt?.toMillis() || Date.now(), messages });
-          }
-          localStorage.setItem(LS_KEY, JSON.stringify(newList));
-        } catch (e) {
-          console.error('Failed to load chats from Firestore', e);
-        }
-      }
+      speakSelect.addEventListener('change', () => { updateLangLabel(); validateLangs(); });
+      answerSelect.addEventListener('change', () => { updateLangLabel(); validateLangs(); });
     </script>
-    <!-- Existing app script, now augmented for auth & firestore -->
+    <!-- Existing application script preserved for chat functionality -->
     <script>
       const API_BASE = "https://india-therapist-chatbot.onrender.com";
       // ---------- DOM ----------
@@ -314,7 +623,6 @@
       const speakLangSel= document.getElementById('speakLang');
       const answerLangSel=document.getElementById('answerLang');
       const timerBadge  = document.getElementById('timer');
-      // Note: transcriptBox and answerBox removed in new design. Only update text fields.
       const loadingBar  = document.getElementById('loadingBar');
       const textInput   = document.getElementById('textInput');
       const sendTextBtn = document.getElementById('sendTextBtn');
@@ -439,7 +747,7 @@
       function validateLangs() {
         const ok = speakLangSel.value && answerLangSel.value;
         recordBtn.disabled = !ok || !window.__auth?.user;
-        sendBtn.disabled = !ok || !lastBlob || !window.__auth?.user;
+        sendBtn.disabled   = !ok || !lastBlob || !window.__auth?.user;
         sendTextBtn.disabled = !ok || !window.__auth?.user || !textInput.value.trim();
         return ok;
       }
@@ -451,8 +759,8 @@
         catch { alert("Microphone permission is required."); throw new Error("no-mic"); }
       }
       function fmt(sec){const m=String(Math.floor(sec/60)).padStart(2,'0');const s=String(Math.floor(sec%60)).padStart(2,'0');return `${m}:${s}`;}
-      function startTimer(){timerBadge.hidden=false;startTs=Date.now();tickInt=setInterval(()=>{timerBadge.textContent=fmt((Date.now()-startTs)/1000);},250);}
-      function stopTimer(){clearInterval(tickInt);tickInt=null;}
+      function startTimer(){timerBadge.style.display='inline-block';startTs=Date.now();tickInt=setInterval(()=>{timerBadge.textContent=fmt((Date.now()-startTs)/1000);},250);}
+      function stopTimer(){clearInterval(tickInt);tickInt=null; timerBadge.style.display='none';}
       async function toggleRecording() {
         // Only allow recording if logged in
         if (!window.__auth?.user) { statusEl.textContent = "Please sign in first."; return; }
@@ -476,15 +784,17 @@
           };
           mediaRecorder.start();
           isRecording = true;
-          recordBtn.textContent = "⏹ Stop";
-          pauseBtn.hidden = false; pauseBtn.disabled = false; pauseBtn.textContent = "⏸ Pause";
+          recordBtn.textContent = "⏹";
+          recordBtn.classList.add('recording');
+          pauseBtn.style.display = 'inline-flex'; pauseBtn.disabled = false; pauseBtn.textContent = "⏸";
           startTimer();
         } else {
-          stopTimer(); timerBadge.hidden = true;
+          stopTimer();
           statusEl.textContent = 'Processing recording…';
           isRecording = false;
-          recordBtn.textContent = "🎙️ Start recording";
-          pauseBtn.hidden = true; pauseBtn.disabled = true;
+          recordBtn.textContent = "🎙️";
+          recordBtn.classList.remove('recording');
+          pauseBtn.style.display = 'none'; pauseBtn.disabled = true;
           try { mediaRecorder.stop(); } catch {}
         }
       }
@@ -493,11 +803,11 @@
         if (!mediaRecorder) return;
         if (mediaRecorder.state === 'recording') {
           mediaRecorder.pause();
-          pauseBtn.textContent = "▶️ Resume";
+          pauseBtn.textContent = "▶️";
           statusEl.textContent = 'Paused. Resume or Stop.';
         } else if (mediaRecorder.state === 'paused') {
           mediaRecorder.resume();
-          pauseBtn.textContent = "⏸ Pause";
+          pauseBtn.textContent = "⏸";
           statusEl.textContent = 'Recording…';
         }
       });
@@ -573,8 +883,10 @@
           updateSuggestions();
           statusEl.textContent = 'Done! Ask a follow-up or switch chats.';
           lastBlob = null;
-          recordBtn.textContent = "🎙️ Start recording";
+          recordBtn.textContent = "🎙️";
+          recordBtn.classList.remove('recording');
           sendBtn.disabled = true;
+          pauseBtn.style.display = 'none'; pauseBtn.disabled = true;
         } catch (e) {
           console.error(e);
           loadingBar.style.display = 'none';
@@ -695,6 +1007,7 @@
         if (all.length > 0) loadChat(all[0].id);
         validateLangs();
         renderThread();
+        updateLangLabel();
       });
     </script>
   </body>
