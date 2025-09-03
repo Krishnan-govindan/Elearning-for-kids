@@ -37,11 +37,80 @@
       b { font-weight:600 }
       .pill { padding:.3rem .6rem; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe; font-size:.85rem }
       #loadingBar { display:none; width:100%; padding:.6rem; background:#4CAF50; color:#fff; text-align:center; border-radius:8px; margin-top:.5rem; font-weight:600 }
+      /* Chat thread area */
+      .thread {
+        display:flex;
+        flex-direction:column;
+        gap:.5rem;
+        max-height:50vh;
+        overflow-y:auto;
+        background:#f8fafc;
+        border:1px solid var(--bd);
+        border-radius:12px;
+        padding:1rem;
+        box-shadow:0 4px 6px rgba(0,0,0,0.05);
+      }
+      .msg {
+        max-width:80%;
+        padding:.6rem 1rem;
+        border-radius:16px;
+        box-shadow:0 2px 4px rgba(0,0,0,0.05);
+        line-height:1.4;
+        word-break:break-word;
+      }
+      .msg.user {
+        align-self:flex-end;
+        background: linear-gradient(135deg, #dbeafe, #c7d2fe);
+        border-top-right-radius:0;
+      }
+      .msg.assistant {
+        align-self:flex-start;
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        border-top-left-radius:0;
+      }
+      /* Suggestions */
+      .suggestions {
+        display:flex;
+        flex-wrap:wrap;
+        gap:.5rem;
+      }
+      .suggestion-btn {
+        padding:.4rem .9rem;
+        border-radius:999px;
+        background:#f1f5f9;
+        border:1px solid var(--bd);
+        cursor:pointer;
+        font-size:.85rem;
+        transition:background .2s;
+      }
+      .suggestion-btn:hover { background:#e2e8f0; }
       /* Text input area */
       #textRow { display:flex; gap:.5rem; margin-top:1rem; }
-      #textInput { flex:1; resize:vertical; min-height:2rem; max-height:6rem; }
+      #textInput { flex:1; resize:vertical; min-height:2rem; max-height:6rem; border-radius:12px; padding:.6rem .8rem; font-size:1rem; }
       #loginRequired { display:none; text-align:center; margin:1rem 0; padding:1rem; border:1px solid var(--bd); border-radius:12px; background:#fff; }
-      @media (max-width: 940px){ .side{display:none} .wrap{margin:0; border:0; border-radius:0} body{flex-direction:column} }
+      /* Mobile toggle hidden by default */
+      .mobile-toggle { display:none; }
+      @media (max-width: 940px){
+        .side{
+          display:none;
+          position:fixed;
+          top:0;
+          left:0;
+          width:75%;
+          height:100vh;
+          z-index:999;
+          background:#fff;
+          border-right:1px solid var(--bd);
+          overflow:auto;
+          transition:transform .3s ease-out;
+        }
+        .side.open {
+          display:block;
+        }
+        .wrap{margin:0; border:0; border-radius:0; padding:1rem; }
+        body{flex-direction:column; overflow-x:hidden; }
+        .mobile-toggle { display:inline-block; }
+      }
     </style>
   </head>
   <body>
@@ -58,9 +127,11 @@
       </div>
     </div>
     <div id="loginRequired">Please sign in to start using Kid Speak &amp; Learn.</div>
+    <!-- Mobile toggle for sidebar -->
+    <button id="toggleSidebarBtn" class="ghost mobile-toggle" style="display:none;margin:.5rem 1rem">☰ Chats</button>
     <div class="main-container">
       <!-- Sidebar with chat history -->
-      <aside class="side">
+      <aside class="side" id="sidebar">
         <h2>Chats</h2>
         <button id="newChatBtn">🆕 New chat</button>
         <div id="chatList" class="chatlist"></div>
@@ -107,11 +178,12 @@
             <button id="sendBtn" class="primary" disabled>↗ Send</button>
             <span id="timer" class="pill" hidden>00:00</span>
           </div>
-          <div class="status" id="status">Choose both languages → tap <b>Start recording</b>, then tap <b>Send</b>.</div>
+          <div class="status" id="status">Choose both languages → tap <b>Start recording</b>, type a question or tap <b>Send</b>.</div>
           <div id="loadingBar">We are preparing your answers…</div>
-          <!-- Simple transcript/answer view of latest turn -->
-          <div class="box" id="transcriptBox"><b>Transcript:</b> <span id="transcript">—</span></div>
-          <div class="box" id="answerBox"><b>Answer:</b> <span id="answer">—</span></div>
+          <!-- Chat thread: messages will appear here -->
+          <div id="chatThread" class="thread"></div>
+          <!-- Suggestions row -->
+          <div id="suggestions" class="suggestions" style="display:none"></div>
           <audio id="player" controls></audio>
           <!-- Text chat input -->
           <div id="textRow">
@@ -242,8 +314,7 @@
       const speakLangSel= document.getElementById('speakLang');
       const answerLangSel=document.getElementById('answerLang');
       const timerBadge  = document.getElementById('timer');
-      const transcriptBox= document.getElementById('transcriptBox');
-      const answerBox   = document.getElementById('answerBox');
+      // Note: transcriptBox and answerBox removed in new design. Only update text fields.
       const loadingBar  = document.getElementById('loadingBar');
       const textInput   = document.getElementById('textInput');
       const sendTextBtn = document.getElementById('sendTextBtn');
@@ -345,6 +416,8 @@
         statusEl.textContent = "Loaded chat. Record a follow-up, type a question or start a New chat.";
         lastBlob = null;
         validateLangs();
+        // Render the full message thread
+        renderThread();
       }
       // Boot: ensure at least one chat exists
       (function initChats(){
@@ -446,6 +519,8 @@
         // Firestore
         const user = window.__auth?.user;
         if (user) saveTurnToFirestore(user.uid, chat.id, userText, assistantText, speakLangSel.value, answerLangSel.value);
+        // Update visible thread
+        renderThread();
       }
       async function getAuthHeader() {
         const user = window.__auth?.user;
@@ -461,8 +536,7 @@
         if (!window.__auth?.user) { statusEl.textContent = "Please sign in first."; return; }
         if (!lastBlob) { statusEl.textContent = "Please record something first."; return; }
         if (!validateLangs()) { statusEl.textContent = "Please select both languages."; return; }
-        transcriptBox.style.display = 'none';
-        answerBox.style.display = 'none';
+        // Hide previous audio player
         player.style.display = 'none';
         loadingBar.style.display = 'block';
         statusEl.textContent = "";
@@ -484,13 +558,19 @@
           }
           const { transcript, text, audioBase64 } = json;
           appendTurnToChat(transcript || "", text || "");
+          // update transcript/answer (not visible but for reference)
           transcriptEl.textContent = transcript || '—';
           answerEl.textContent     = text || '—';
-          player.src = 'data:audio/mpeg;base64,' + audioBase64;
+          if (audioBase64) {
+            player.src = 'data:audio/mpeg;base64,' + audioBase64;
+            player.style.display = 'block';
+          } else {
+            player.removeAttribute('src');
+            player.style.display = 'none';
+          }
           loadingBar.style.display = 'none';
-          transcriptBox.style.display = '';
-          answerBox.style.display   = '';
-          player.style.display      = 'block';
+          // Show suggestions for next prompt
+          updateSuggestions();
           statusEl.textContent = 'Done! Ask a follow-up or switch chats.';
           lastBlob = null;
           recordBtn.textContent = "🎙️ Start recording";
@@ -508,8 +588,7 @@
         const textVal = textInput.value.trim();
         if (!textVal) { statusEl.textContent = "Please type something first."; return; }
         if (!validateLangs()) { statusEl.textContent = "Please select both languages."; return; }
-        transcriptBox.style.display = 'none';
-        answerBox.style.display = 'none';
+        // Hide previous audio player
         player.style.display = 'none';
         loadingBar.style.display = 'block';
         statusEl.textContent = "";
@@ -530,15 +609,19 @@
             statusEl.textContent = json?.message || json?.error || 'Request failed';
             return;
           }
-          const { transcript, text, audioBase64 } = json;
-          appendTurnToChat(textVal, text || "");
+          const { transcript, text: aiText, audioBase64 } = json;
+          appendTurnToChat(textVal, aiText || "");
           transcriptEl.textContent = textVal;
-          answerEl.textContent     = text || '—';
-          player.src = 'data:audio/mpeg;base64,' + audioBase64;
+          answerEl.textContent     = aiText || '—';
+          if (audioBase64) {
+            player.src = 'data:audio/mpeg;base64,' + audioBase64;
+            player.style.display = 'block';
+          } else {
+            player.removeAttribute('src');
+            player.style.display = 'none';
+          }
           loadingBar.style.display = 'none';
-          transcriptBox.style.display = '';
-          answerBox.style.display   = '';
-          player.style.display      = 'block';
+          updateSuggestions();
           statusEl.textContent = 'Done! Ask a follow-up or switch chats.';
           textInput.value = '';
           validateLangs();
@@ -555,11 +638,63 @@
           sendText();
         }
       });
+      // Render the message thread for current chat
+      function renderThread() {
+        const threadEl = document.getElementById('chatThread');
+        threadEl.innerHTML = '';
+        const chat = getChat(currentChatId);
+        if (!chat || !chat.messages || !chat.messages.length) {
+          return;
+        }
+        chat.messages.forEach(msg => {
+          const div = document.createElement('div');
+          div.className = 'msg ' + (msg.role === 'user' ? 'user' : 'assistant');
+          div.textContent = msg.content;
+          threadEl.appendChild(div);
+        });
+        // Scroll to bottom
+        setTimeout(() => { threadEl.scrollTop = threadEl.scrollHeight; }, 0);
+      }
+      // Update suggestions with static example prompts
+      function updateSuggestions() {
+        const suggestionsEl = document.getElementById('suggestions');
+        const prompts = [
+          'Can you give me another example?',
+          'Could you explain this in simpler words?',
+          'What else should I know about this topic?'
+        ];
+        suggestionsEl.innerHTML = '';
+        prompts.forEach(p => {
+          const btn = document.createElement('button');
+          btn.className = 'suggestion-btn';
+          btn.textContent = p;
+          btn.addEventListener('click', () => {
+            textInput.value = p;
+            sendText();
+          });
+          suggestionsEl.appendChild(btn);
+        });
+        suggestionsEl.style.display = 'flex';
+      }
+      // Toggle sidebar on mobile
+      const toggleBtn = document.getElementById('toggleSidebarBtn');
+      const sidebar  = document.getElementById('sidebar');
+      toggleBtn.addEventListener('click', () => {
+        const open = sidebar.classList.contains('open');
+        if (open) {
+          sidebar.classList.remove('open');
+          document.body.style.overflow = '';
+        } else {
+          sidebar.classList.add('open');
+          document.body.style.overflow = 'hidden';
+        }
+      });
       // On boot load first chat (if exists) after auth loaded
       window.addEventListener('load', () => {
         const all = loadAllChats();
         if (all.length > 0) loadChat(all[0].id);
         validateLangs();
+        renderThread();
       });
     </script>
   </body>
