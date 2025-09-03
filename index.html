@@ -3,22 +3,30 @@
   <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <title>Kid Speak & Learn</title>
+    <title>Kid Speak &amp; Learn</title>
     <style>
       :root { --card:#fff; --ink:#111; --muted:#666; --bd:#e5e7eb; --bg:#f8fafc; }
       * { box-sizing: border-box }
-      body { margin:0; font-family: system-ui, Segoe UI, Roboto, Arial; background: var(--bg); color: var(--ink); display:flex; min-height:100vh }
+      body { margin:0; font-family: system-ui, Segoe UI, Roboto, Arial; background: var(--bg); color: var(--ink); display:flex; flex-direction:column; min-height:100vh }
+      /* Auth bar */
+      #authBar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.6rem 1rem; border-bottom:1px solid var(--bd); background:#fff; }
+      #authBar .user-info { display:flex; align-items:center; gap:.5rem; }
+      #authBar img { width:28px; height:28px; border-radius:50%; border:1px solid var(--bd); display:none; }
+      #authBar .user-name { font-weight:600; }
+      #authBar .user-email { color:#666; font-size:.9rem; }
+      /* Layout */
+      .main-container { flex:1; display:flex; min-height:0; }
       /* Sidebar */
-      .side { width: 280px; background:#fff; border-right:1px solid var(--bd); padding:1rem; display:flex; flex-direction:column; gap:.75rem }
+      .side { width: 280px; background:#fff; border-right:1px solid var(--bd); padding:1rem; display:flex; flex-direction:column; gap:.75rem; overflow:auto }
       .side h2 { margin:0 0 .5rem; font-size:1.1rem }
       .chatlist { display:flex; flex-direction:column; gap:.5rem; overflow:auto }
       .chatitem { padding:.6rem .7rem; border:1px solid var(--bd); border-radius:10px; background:#fafafa; cursor:pointer }
       .chatitem.active { background:#eef2ff; border-color:#c7d2fe }
       .row { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap }
-      .right { flex:1; }
+      .right { flex:1; overflow-y:auto; }
       .wrap { max-width: 920px; margin: 1.5rem auto; background: var(--card); padding: 1.5rem; border:1px solid var(--bd); border-radius: 16px; }
       h1 { margin: 0 0 1rem }
-      select, button { padding:.8rem 1.1rem; border-radius:12px; border:1px solid var(--bd); background:#fff }
+      select, button, input, textarea { padding:.8rem 1.1rem; border-radius:12px; border:1px solid var(--bd); background:#fff }
       button { cursor:pointer; font-weight:600 }
       button.primary { background:#111; color:#fff; }
       button.ghost { background:#fff; }
@@ -29,76 +37,198 @@
       b { font-weight:600 }
       .pill { padding:.3rem .6rem; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe; font-size:.85rem }
       #loadingBar { display:none; width:100%; padding:.6rem; background:#4CAF50; color:#fff; text-align:center; border-radius:8px; margin-top:.5rem; font-weight:600 }
-      @media (max-width: 940px){ .side{display:none} .wrap{margin:0; border:0; border-radius:0} body{display:block} }
+      /* Text input area */
+      #textRow { display:flex; gap:.5rem; margin-top:1rem; }
+      #textInput { flex:1; resize:vertical; min-height:2rem; max-height:6rem; }
+      #loginRequired { display:none; text-align:center; margin:1rem 0; padding:1rem; border:1px solid var(--bd); border-radius:12px; background:#fff; }
+      @media (max-width: 940px){ .side{display:none} .wrap{margin:0; border:0; border-radius:0} body{flex-direction:column} }
     </style>
   </head>
   <body>
-    <!-- Sidebar with chat history -->
-    <aside class="side">
-      <h2>Chats</h2>
-      <button id="newChatBtn">🆕 New chat</button>
-      <div id="chatList" class="chatlist"></div>
-    </aside>
-
-    <!-- Main panel -->
-    <main class="right">
-      <div class="wrap">
-        <h1>Kid Speak & Learn</h1>
-
-        <div class="row">
-          <label><b>Speaking language</b><br/>
-            <select id="speakLang" required>
-              <option value="">Select language</option>
-              <option>English</option>
-              <option>Hindi (हिन्दी)</option>
-              <option>Tamil (தமிழ்)</option>
-              <option>Telugu (తెలుగు)</option>
-              <option>Kannada (ಕನ್ನಡ)</option>
-              <option>Malayalam (മലയാളം)</option>
-              <option>Marathi (मराठी)</option>
-              <option>Gujarati (ગુજરાતી)</option>
-              <option>Bengali (বাংলা)</option>
-              <option>Panjabi (ਪੰਜਾਬੀ)</option>
-            </select>
-          </label>
-
-          <label><b>Answer language</b><br/>
-            <select id="answerLang" required>
-              <option value="">Select language</option>
-              <option>English</option>
-              <option>Hindi (हिन्दी)</option>
-              <option>Tamil (தமிழ்)</option>
-              <option>Telugu (తెలుగు)</option>
-              <option>Kannada (ಕನ್ನಡ)</option>
-              <option>Malayalam (മലയാളം)</option>
-              <option>Marathi (मराठी)</option>
-              <option>Gujarati (ગુજરાતી)</option>
-              <option>Bengali (বাংলা)</option>
-              <option>Panjabi (ਪੰਜਾਬੀ)</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="row" style="margin-top:.5rem;">
-          <button id="recordBtn" class="ghost" disabled>🎙️ Start recording</button>
-          <button id="pauseBtn" class="ghost" hidden disabled>⏸ Pause</button>
-          <button id="sendBtn" class="primary" disabled>↗ Send</button>
-          <span id="timer" class="pill" hidden>00:00</span>
-        </div>
-
-        <div class="status" id="status">Choose both languages → tap <b>Start recording</b>, then tap <b>Send</b>.</div>
-        <div id="loadingBar">We are preparing your answers…</div>
-
-        <!-- Simple transcript/answer view of latest turn -->
-        <div class="box" id="transcriptBox"><b>Transcript:</b> <span id="transcript">—</span></div>
-        <div class="box" id="answerBox"><b>Answer:</b> <span id="answer">—</span></div>
-        <audio id="player" controls></audio>
+    <!-- Authentication bar -->
+    <div id="authBar">
+      <div class="user-info">
+        <img id="userPhoto" src="" alt="User" />
+        <span id="userName" class="user-name"></span>
+        <span id="userEmail" class="user-email"></span>
       </div>
-    </main>
+      <div>
+        <button id="loginBtn">🔐 Sign in with Google</button>
+        <button id="logoutBtn" style="display:none">🚪 Sign out</button>
+      </div>
+    </div>
+    <div id="loginRequired">Please sign in to start using Kid Speak &amp; Learn.</div>
+    <div class="main-container">
+      <!-- Sidebar with chat history -->
+      <aside class="side">
+        <h2>Chats</h2>
+        <button id="newChatBtn">🆕 New chat</button>
+        <div id="chatList" class="chatlist"></div>
+      </aside>
+      <!-- Main panel -->
+      <main class="right">
+        <div class="wrap">
+          <h1>Kid Speak &amp; Learn</h1>
+          <div class="row">
+            <label><b>Speaking language</b><br/>
+              <select id="speakLang" required>
+                <option value="">Select language</option>
+                <option>English</option>
+                <option>Hindi (हिन्दी)</option>
+                <option>Tamil (தமிழ்)</option>
+                <option>Telugu (తెలుగు)</option>
+                <option>Kannada (ಕನ್ನಡ)</option>
+                <option>Malayalam (മലയാളം)</option>
+                <option>Marathi (मराठी)</option>
+                <option>Gujarati (ગુજરાતી)</option>
+                <option>Bengali (বাংলা)</option>
+                <option>Panjabi (ਪੰਜਾਬੀ)</option>
+              </select>
+            </label>
+            <label><b>Answer language</b><br/>
+              <select id="answerLang" required>
+                <option value="">Select language</option>
+                <option>English</option>
+                <option>Hindi (हिन्दी)</option>
+                <option>Tamil (தமிழ்)</option>
+                <option>Telugu (తెలుగు)</option>
+                <option>Kannada (ಕನ್ನಡ)</option>
+                <option>Malayalam (മലയാളം)</option>
+                <option>Marathi (मराठी)</option>
+                <option>Gujarati (ગુજરાતી)</option>
+                <option>Bengali (বাংলা)</option>
+                <option>Panjabi (ਪੰਜਾਬੀ)</option>
+              </select>
+            </label>
+          </div>
+          <div class="row" style="margin-top:.5rem;">
+            <button id="recordBtn" class="ghost" disabled>🎙️ Start recording</button>
+            <button id="pauseBtn" class="ghost" hidden disabled>⏸ Pause</button>
+            <button id="sendBtn" class="primary" disabled>↗ Send</button>
+            <span id="timer" class="pill" hidden>00:00</span>
+          </div>
+          <div class="status" id="status">Choose both languages → tap <b>Start recording</b>, then tap <b>Send</b>.</div>
+          <div id="loadingBar">We are preparing your answers…</div>
+          <!-- Simple transcript/answer view of latest turn -->
+          <div class="box" id="transcriptBox"><b>Transcript:</b> <span id="transcript">—</span></div>
+          <div class="box" id="answerBox"><b>Answer:</b> <span id="answer">—</span></div>
+          <audio id="player" controls></audio>
+          <!-- Text chat input -->
+          <div id="textRow">
+            <textarea id="textInput" placeholder="Type your question…" disabled></textarea>
+            <button id="sendTextBtn" class="primary" disabled>➤ Send Text</button>
+          </div>
+        </div>
+      </main>
+    </div>
+    <!-- Firebase + Auth + Firestore -->
+    <script type="module">
+      // Import Firebase SDKs
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js';
+      import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, getIdToken } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js';
+      import { getFirestore, doc, setDoc, updateDoc, collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
 
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyARKGvFd051nAxe3lXpkcktBHl46NP38A0",
+        authDomain: "kid-speak-learn.firebaseapp.com",
+        projectId: "kid-speak-learn",
+        storageBucket: "kid-speak-learn.firebasestorage.app",
+        messagingSenderId: "334841993987",
+        appId: "1:334841993987:web:1eebc8a53936d06ed0e736"
+      };
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+      const provider = new GoogleAuthProvider();
+      // DOM references for auth
+      const loginBtn    = document.getElementById('loginBtn');
+      const logoutBtn   = document.getElementById('logoutBtn');
+      const userNameEl  = document.getElementById('userName');
+      const userEmailEl = document.getElementById('userEmail');
+      const userPhotoEl = document.getElementById('userPhoto');
+      const loginReqEl  = document.getElementById('loginRequired');
+      // Expose to global for non-module script
+      window.__auth = { auth, getIdToken, user: null };
+      window.__db   = { db, doc, setDoc, updateDoc, collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs };
+      // Login click handler
+      loginBtn.addEventListener('click', async () => {
+        try {
+          await signInWithPopup(auth, provider);
+        } catch (e) {
+          alert('Login failed: ' + (e?.message || e));
+        }
+      });
+      // Logout handler
+      logoutBtn.addEventListener('click', async () => {
+        try { await signOut(auth); } catch (e) { console.error(e); }
+      });
+      // Auth state observer
+      onAuthStateChanged(auth, async (user) => {
+        window.__auth.user = user;
+        if (user) {
+          // Show user info
+          userNameEl.textContent  = user.displayName || '';
+          userEmailEl.textContent = user.email || '';
+          if (user.photoURL) {
+            userPhotoEl.src = user.photoURL;
+            userPhotoEl.style.display = '';
+          } else {
+            userPhotoEl.style.display = 'none';
+          }
+          loginBtn.style.display  = 'none';
+          logoutBtn.style.display = '';
+          loginReqEl.style.display = 'none';
+          // Fetch chats from Firestore and merge into local storage if none
+          await syncChatsFromFirestore(user.uid);
+          enableAppControls(true);
+        } else {
+          // Logged out
+          userNameEl.textContent  = '';
+          userEmailEl.textContent = '';
+          userPhotoEl.style.display = 'none';
+          loginBtn.style.display  = '';
+          logoutBtn.style.display = 'none';
+          loginReqEl.style.display = '';
+          enableAppControls(false);
+          window.__auth.lastIdToken = null;
+        }
+      });
+      // Enable/disable application controls based on auth state
+      function enableAppControls(enable) {
+        const disabled = !enable;
+        document.getElementById('newChatBtn').disabled = disabled;
+        document.getElementById('recordBtn').disabled = disabled || !validateLangs();
+        document.getElementById('sendBtn').disabled = disabled || !validateLangs() || !lastBlob;
+        document.getElementById('textInput').disabled = disabled;
+        document.getElementById('sendTextBtn').disabled = disabled;
+      }
+      // Sync chats from Firestore into local storage if none exist
+      async function syncChatsFromFirestore(uid) {
+        const local = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+        if (local && local.length) return; // Already has local chats
+        try {
+          const chatsCol = collection(db, 'users', uid, 'chats');
+          const chatsSnap = await getDocs(chatsCol);
+          const newList = [];
+          for (const chatDoc of chatsSnap.docs) {
+            const chatId = chatDoc.id;
+            const data = chatDoc.data();
+            const messagesCol = collection(db, 'users', uid, 'chats', chatId, 'messages');
+            const msgSnap = await getDocs(query(messagesCol, orderBy('createdAt', 'asc')));
+            const messages = msgSnap.docs.map(d => d.data());
+            newList.push({ id: chatId, title: data.title || 'Chat', createdAt: data.createdAt?.toMillis() || Date.now(), messages });
+          }
+          localStorage.setItem(LS_KEY, JSON.stringify(newList));
+        } catch (e) {
+          console.error('Failed to load chats from Firestore', e);
+        }
+      }
+    </script>
+    <!-- Existing app script, now augmented for auth & firestore -->
     <script>
       const API_BASE = "https://india-therapist-chatbot.onrender.com";
-
       // ---------- DOM ----------
       const chatList    = document.getElementById('chatList');
       const newChatBtn  = document.getElementById('newChatBtn');
@@ -115,7 +245,8 @@
       const transcriptBox= document.getElementById('transcriptBox');
       const answerBox   = document.getElementById('answerBox');
       const loadingBar  = document.getElementById('loadingBar');
-
+      const textInput   = document.getElementById('textInput');
+      const sendTextBtn = document.getElementById('sendTextBtn');
       // ---------- Local storage helpers ----------
       const LS_KEY = "kid_chats_v1";
       function loadAllChats(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)) || []; }catch{ return []; } }
@@ -124,6 +255,9 @@
         const id = crypto.randomUUID();
         const chat = { id, title: "New chat", createdAt: Date.now(), messages: [] };
         const list = loadAllChats(); list.unshift(chat); saveAllChats(list);
+        // Firestore: create chat
+        const user = window.__auth?.user;
+        if (user) createFirestoreChat(user.uid, id, chat.title);
         return chat;
       }
       function getChat(id){ return loadAllChats().find(c=>c.id===id); }
@@ -139,7 +273,44 @@
           chat.title = firstUserText.slice(0, 40) + (firstUserText.length>40 ? "…" : "");
         }
       }
-
+      // Firestore helpers
+      async function createFirestoreChat(uid, chatId, title){
+        const { db, doc, setDoc, serverTimestamp } = window.__db;
+        try {
+          const chatRef = doc(db, 'users', uid, 'chats', chatId);
+          await setDoc(chatRef, { title, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), lastSnippet: '' }, { merge:true });
+        } catch (e) { console.error('Failed to create chat in Firestore', e); }
+      }
+      async function saveTurnToFirestore(uid, chatId, userText, assistantText, speakLang, answerLang){
+        const { db, collection, addDoc, serverTimestamp, doc, updateDoc } = window.__db;
+        try {
+          const msgsCol = collection(db, 'users', uid, 'chats', chatId, 'messages');
+          if (userText) {
+            await addDoc(msgsCol, {
+              role: 'user',
+              content: userText,
+              speakLanguage: speakLang,
+              answerLanguage: answerLang,
+              createdAt: serverTimestamp()
+            });
+          }
+          if (assistantText) {
+            await addDoc(msgsCol, {
+              role: 'assistant',
+              content: assistantText,
+              speakLanguage: speakLang,
+              answerLanguage: answerLang,
+              createdAt: serverTimestamp()
+            });
+            // update chat metadata
+            const chatRef = doc(db, 'users', uid, 'chats', chatId);
+            await updateDoc(chatRef, {
+              updatedAt: serverTimestamp(),
+              lastSnippet: assistantText.slice(0,120)
+            });
+          }
+        } catch (e) { console.error('Failed to save turn to Firestore', e); }
+      }
       // ---------- UI: render chat list ----------
       let currentChatId = null;
       function renderChatList(){
@@ -155,7 +326,6 @@
           chatList.appendChild(div);
         });
       }
-
       function loadChat(id){
         currentChatId = id;
         renderChatList();
@@ -172,11 +342,10 @@
         }
         player.removeAttribute("src"); player.load();
         loadingBar.style.display = "none";
-        statusEl.textContent = "Loaded chat. Record a follow-up or start a New chat.";
+        statusEl.textContent = "Loaded chat. Record a follow-up, type a question or start a New chat.";
         lastBlob = null;
         validateLangs();
       }
-
       // Boot: ensure at least one chat exists
       (function initChats(){
         const all = loadAllChats();
@@ -188,34 +357,32 @@
         }
         renderChatList();
       })();
-
       newChatBtn.addEventListener('click', ()=>{
         const c = createChat();
         loadChat(c.id);
       });
-
       // ---------- Recording (same as before with Pause/Resume) ----------
       let mediaRecorder, chunks = [], isRecording = false, startTs = 0, tickInt = null, lastBlob = null;
-
       function validateLangs() {
         const ok = speakLangSel.value && answerLangSel.value;
-        recordBtn.disabled = !ok;
-        sendBtn.disabled = !ok || !lastBlob;
+        recordBtn.disabled = !ok || !window.__auth?.user;
+        sendBtn.disabled = !ok || !lastBlob || !window.__auth?.user;
+        sendTextBtn.disabled = !ok || !window.__auth?.user || !textInput.value.trim();
         return ok;
       }
       speakLangSel.addEventListener('change', validateLangs);
       answerLangSel.addEventListener('change', validateLangs);
-
+      textInput.addEventListener('input', validateLangs);
       async function getStream() {
         try { return await navigator.mediaDevices.getUserMedia({ audio: true }); }
         catch { alert("Microphone permission is required."); throw new Error("no-mic"); }
       }
-
       function fmt(sec){const m=String(Math.floor(sec/60)).padStart(2,'0');const s=String(Math.floor(sec%60)).padStart(2,'0');return `${m}:${s}`;}
       function startTimer(){timerBadge.hidden=false;startTs=Date.now();tickInt=setInterval(()=>{timerBadge.textContent=fmt((Date.now()-startTs)/1000);},250);}
       function stopTimer(){clearInterval(tickInt);tickInt=null;}
-
       async function toggleRecording() {
+        // Only allow recording if logged in
+        if (!window.__auth?.user) { statusEl.textContent = "Please sign in first."; return; }
         if (!validateLangs()) { statusEl.textContent = "Please select both languages first."; return; }
         if (!isRecording) {
           statusEl.textContent = 'Recording…';
@@ -249,7 +416,6 @@
         }
       }
       recordBtn.addEventListener('click', toggleRecording);
-
       pauseBtn.addEventListener('click', () => {
         if (!mediaRecorder) return;
         if (mediaRecorder.state === 'recording') {
@@ -262,7 +428,6 @@
           statusEl.textContent = 'Recording…';
         }
       });
-
       // ---------- Send to server with history ----------
       function getHistoryForCurrentChat(limitTurns=6){
         const chat = getChat(currentChatId);
@@ -270,7 +435,6 @@
         const msgs = chat.messages || [];
         return msgs.slice(-limitTurns*2); // last N user/assistant pairs
       }
-
       function appendTurnToChat(userText, assistantText){
         const chat = getChat(currentChatId);
         if (!chat) return;
@@ -279,28 +443,39 @@
         setTitleIfEmpty(chat, userText);
         updateChat(chat);
         renderChatList();
+        // Firestore
+        const user = window.__auth?.user;
+        if (user) saveTurnToFirestore(user.uid, chat.id, userText, assistantText, speakLangSel.value, answerLangSel.value);
       }
-
+      async function getAuthHeader() {
+        const user = window.__auth?.user;
+        if (!user) return {};
+        try {
+          const token = await window.__auth.getIdToken(user, /*forceRefresh*/ false);
+          return { 'Authorization': 'Bearer ' + token };
+        } catch {
+          return {};
+        }
+      }
       async function sendAudio() {
+        if (!window.__auth?.user) { statusEl.textContent = "Please sign in first."; return; }
         if (!lastBlob) { statusEl.textContent = "Please record something first."; return; }
         if (!validateLangs()) { statusEl.textContent = "Please select both languages."; return; }
-
-        // Hide results; show loader
         transcriptBox.style.display = 'none';
         answerBox.style.display = 'none';
         player.style.display = 'none';
         loadingBar.style.display = 'block';
         statusEl.textContent = "";
-
         const fd = new FormData();
         fd.append('audio', lastBlob, 'speech.webm');
         fd.append('speakLanguage',  speakLangSel.value);
         fd.append('answerLanguage', answerLangSel.value);
         fd.append('conversationId', currentChatId);
         fd.append('history', JSON.stringify(getHistoryForCurrentChat(6)));
-
+        fd.append('uid', window.__auth.user.uid);
         try {
-          const res = await fetch(`${API_BASE}/api/ask`, { method: 'POST', body: fd });
+          const headers = await getAuthHeader();
+          const res = await fetch(`${API_BASE}/api/ask`, { method: 'POST', body: fd, headers });
           const json = await res.json();
           if (!res.ok) {
             loadingBar.style.display = 'none';
@@ -308,20 +483,18 @@
             return;
           }
           const { transcript, text, audioBase64 } = json;
-
-          // Save the full turn locally
           appendTurnToChat(transcript || "", text || "");
-
-          // Update UI with latest turn
           transcriptEl.textContent = transcript || '—';
           answerEl.textContent     = text || '—';
           player.src = 'data:audio/mpeg;base64,' + audioBase64;
-
           loadingBar.style.display = 'none';
           transcriptBox.style.display = '';
           answerBox.style.display   = '';
           player.style.display      = 'block';
           statusEl.textContent = 'Done! Ask a follow-up or switch chats.';
+          lastBlob = null;
+          recordBtn.textContent = "🎙️ Start recording";
+          sendBtn.disabled = true;
         } catch (e) {
           console.error(e);
           loadingBar.style.display = 'none';
@@ -329,15 +502,65 @@
         }
       }
       sendBtn.addEventListener('click', sendAudio);
-
-      // Load first chat on startup
-      (function boot(){
+      // ---------- Typed text send ----------
+      async function sendText() {
+        if (!window.__auth?.user) { statusEl.textContent = "Please sign in first."; return; }
+        const textVal = textInput.value.trim();
+        if (!textVal) { statusEl.textContent = "Please type something first."; return; }
+        if (!validateLangs()) { statusEl.textContent = "Please select both languages."; return; }
+        transcriptBox.style.display = 'none';
+        answerBox.style.display = 'none';
+        player.style.display = 'none';
+        loadingBar.style.display = 'block';
+        statusEl.textContent = "";
+        const body = {
+          text: textVal,
+          speakLanguage: speakLangSel.value,
+          answerLanguage: answerLangSel.value,
+          conversationId: currentChatId,
+          history: getHistoryForCurrentChat(6),
+          uid: window.__auth.user.uid
+        };
+        try {
+          const headers = Object.assign({ 'Content-Type': 'application/json' }, await getAuthHeader());
+          const res = await fetch(`${API_BASE}/api/ask`, { method: 'POST', body: JSON.stringify(body), headers });
+          const json = await res.json();
+          if (!res.ok) {
+            loadingBar.style.display = 'none';
+            statusEl.textContent = json?.message || json?.error || 'Request failed';
+            return;
+          }
+          const { transcript, text, audioBase64 } = json;
+          appendTurnToChat(textVal, text || "");
+          transcriptEl.textContent = textVal;
+          answerEl.textContent     = text || '—';
+          player.src = 'data:audio/mpeg;base64,' + audioBase64;
+          loadingBar.style.display = 'none';
+          transcriptBox.style.display = '';
+          answerBox.style.display   = '';
+          player.style.display      = 'block';
+          statusEl.textContent = 'Done! Ask a follow-up or switch chats.';
+          textInput.value = '';
+          validateLangs();
+        } catch (e) {
+          console.error(e);
+          loadingBar.style.display = 'none';
+          statusEl.textContent = "Network error. Try again.";
+        }
+      }
+      sendTextBtn.addEventListener('click', sendText);
+      textInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendText();
+        }
+      });
+      // On boot load first chat (if exists) after auth loaded
+      window.addEventListener('load', () => {
         const all = loadAllChats();
-        loadChat(all[0].id);
-      })();
-
-      // Initial control states
-      validateLangs();
+        if (all.length > 0) loadChat(all[0].id);
+        validateLangs();
+      });
     </script>
   </body>
 </html>
