@@ -1,4 +1,3 @@
-// server_updated.js
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
@@ -7,17 +6,21 @@ import { toFile } from 'openai/uploads';
 import admin from 'firebase-admin';
 
 /*
- * This server is an updated version of the original kid-speak-learn API.
- * It supports both voice and text inputs, verifies Firebase ID tokens,
- * and stores chat history in Firestore. The client sends a `uid` and
- * includes the Firebase ID token in the Authorization header. The
- * server verifies the token, ensures the uid matches, then processes
- * the request. It performs speech-to-text (if audio is provided),
- * generates an assistant response with OpenAI, converts it to speech,
- * and persists the turn to Firestore.
+ * This server implements the back‑end API used by the Kid Speak & Learn
+ * application.  It supports both voice and text inputs, verifies Firebase ID
+ * tokens passed from the client, and stores chat history in Firestore using
+ * the Firebase Admin SDK when credentials are provided.  The API accepts
+ * multipart/form-data for audio recordings or JSON for typed requests.  It
+ * performs speech‑to‑text using the Whisper model, generates an assistant
+ * response via OpenAI, performs text‑to‑speech to return an audio reply,
+ * then returns a JSON payload containing the assistant’s text and
+ * base64‑encoded audio.  On success the conversation turn is also persisted
+ * to Firestore under the authenticated user’s document.
  */
 
-// Initialize Firebase Admin using service account JSON provided via env
+// Initialise Firebase Admin only if service account JSON is provided via
+// FIREBASE_ADMIN_JSON environment variable.  Without credentials the
+// Firestore write operations will be silently skipped.
 let adminApp;
 try {
   const adminJson = process.env.FIREBASE_ADMIN_JSON ? JSON.parse(process.env.FIREBASE_ADMIN_JSON) : null;
@@ -25,7 +28,7 @@ try {
     adminApp = admin.initializeApp({ credential: admin.credential.cert(adminJson) });
   }
 } catch (e) {
-  console.error('Failed to initialize Firebase Admin:', e);
+  console.error('Failed to initialise Firebase Admin:', e);
 }
 
 const app = express();
@@ -33,6 +36,7 @@ const app = express();
 const STT_MODEL = process.env.STT_MODEL || 'whisper-1';
 const CLEAN_TRANSCRIPT = String(process.env.CLEAN_TRANSCRIPT || 'false').toLowerCase() === 'true';
 
+// Allow cross‑origin requests from the hosted front‑ends
 app.use(cors({
   origin: [
     'https://india-therapist-chatbot.onrender.com',
@@ -44,11 +48,16 @@ app.use(cors({
 const upload = multer({ storage: multer.memoryStorage() });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// Serve static files for the front‑end (e.g. index.html)
 app.use(express.static('.'));
-// Needed to parse JSON bodies for text-only requests
+// Allow JSON bodies on POST requests
 app.use(express.json());
 
-// Middleware to verify Firebase ID token (if provided)
+// Verify Firebase ID tokens if sent by the client.  The decoded UID is
+// available on req.firebaseUser for downstream handlers.  If the token is
+// missing or invalid, req.firebaseUser will be null and unauthenticated
+// requests will still be processed, but the server will not write
+// conversation history to Firestore.
 async function verifyFirebaseToken(req, res, next) {
   const authHdr = req.headers.authorization || '';
   const tokenMatch = authHdr.match(/^Bearer\s+(.*)$/i);
@@ -68,22 +77,33 @@ async function verifyFirebaseToken(req, res, next) {
 }
 app.use(verifyFirebaseToken);
 
-// Map of language names to ISO codes for Whisper
+// Map of language names to ISO codes for Whisper.  Values correspond to
+// supported language codes in the Whisper speech‑to‑text API.
 const ISO = {
   English:'en', Hindi:'hi', Tamil:'ta', Telugu:'te', Kannada:'kn',
   Malayalam:'ml', Marathi:'mr', Gujarati:'gu', Bengali:'bn',
   Punjabi:'pa', Panjabi:'pa'
 };
 
+/**
+ * POST /api/ask
+ *
+ * Accepts either an audio recording or a typed question along with the
+ * selected languages and conversation context.  Performs speech‑to‑text
+ * when audio is provided, generates a response using GPT, converts the
+ * response to speech and returns both the text and audio to the client.  A
+ * valid Firebase UID and ID token must be provided for history to be
+ * persisted.
+ */
 app.post('/api/ask', upload.single('audio'), async (req, res) => {
   try {
-    // Extract fields; support both multipart/form-data and JSON
+    // Extract fields from multipart/form-data or JSON body
     const body = req.body || {};
     const answerLanguage = (body.answerLanguage || '').trim();
     const speakLanguage  = (body.speakLanguage  || '').trim();
     const conversationId = (body.conversationId || '').trim();
     const uid            = (body.uid || '').trim();
-    // History may be provided as JSON array or stringified JSON
+    // Parse conversation history if provided
     let clientHistory = [];
     if (body.history) {
       try {
@@ -100,14 +120,14 @@ app.post('/api/ask', upload.single('audio'), async (req, res) => {
     if (!answerLanguage || !speakLanguage) {
       return res.status(400).json({ error: 'missing_language', message: 'Please select both Speaking and Answer languages.' });
     }
-    // If id token is provided ensure uid matches decoded user
+    // If an ID token was verified, ensure the provided UID matches
     if (uid && req.firebaseUser && req.firebaseUser.uid && uid !== req.firebaseUser.uid) {
       return res.status(401).json({ error: 'unauthenticated', message: 'UID does not match authenticated user.' });
     }
-    // Determine user text: from audio or from text field
+    // Determine the user’s input: either from audio or from the text field
     let userText = '';
     if (req.file && req.file.buffer && req.file.size >= 5000) {
-      // Speech-to-text
+      // Speech‑to‑text via Whisper
       const stt = await openai.audio.transcriptions.create({
         file: await toFile(req.file.buffer, 'speech.webm', { type: 'audio/webm' }),
         model: STT_MODEL,
@@ -120,7 +140,7 @@ app.post('/api/ask', upload.single('audio'), async (req, res) => {
     } else {
       return res.status(400).json({ error: 'no_input', message: 'No valid audio or text provided.' });
     }
-    // Optional cleanup using GPT to fix transcription errors
+    // Optional cleanup using GPT to correct obvious transcription errors
     if (CLEAN_TRANSCRIPT && userText) {
       const cleaned = await openai.responses.create({
         model: 'gpt-5',
@@ -131,10 +151,10 @@ app.post('/api/ask', upload.single('audio'), async (req, res) => {
       });
       userText = (cleaned.output_text || userText).trim();
     }
-    // Prepare safe history: last 6 turns (≈ 12 messages)
+    // Prepare safe history: last six turns (≈12 messages)
     const MAX_TURNS = 6;
     const safeHistory = clientHistory.slice(-MAX_TURNS * 2);
-    // Compose system prompt and messages
+    // Compose system prompt and messages for the assistant
     const systemPrompt =
       `You are a ${answerLanguage} kids e-learning helper for Indian kids. ` +
       `This API key is for child-friendly education. Use very simple words, short sentences, warm tone. ` +
@@ -145,10 +165,10 @@ app.post('/api/ask', upload.single('audio'), async (req, res) => {
       ...safeHistory,
       { role: 'user', content: userText }
     ];
-    // Generate assistant text
+    // Generate assistant text via GPT
     const resp = await openai.responses.create({ model: 'gpt-5', input: messages });
     const assistantText = (resp.output_text || '').trim();
-    // Text-to-speech (catch errors; some languages/voices unsupported)
+    // Text‑to‑speech using OpenAI.  If unsupported, skip audio.
     let base64Audio = '';
     try {
       const speech = await openai.audio.speech.create({
@@ -162,7 +182,7 @@ app.post('/api/ask', upload.single('audio'), async (req, res) => {
       console.warn('TTS failed; returning text only', ttsErr?.message || ttsErr);
       base64Audio = '';
     }
-    // Persist the turn to Firestore (if admin initialized and uid provided)
+    // Persist history to Firestore if admin credentials and UID are present
     if (adminApp && uid) {
       try {
         const db = admin.firestore();
@@ -189,7 +209,7 @@ app.post('/api/ask', upload.single('audio'), async (req, res) => {
         console.error('Failed to write history to Firestore:', e);
       }
     }
-    // Respond
+    // Respond to client
     res.json({
       conversationId,
       transcript: userText,
