@@ -148,14 +148,20 @@ app.post('/api/ask', upload.single('audio'), async (req, res) => {
     // Generate assistant text
     const resp = await openai.responses.create({ model: 'gpt-5', input: messages });
     const assistantText = (resp.output_text || '').trim();
-    // Text-to-speech
-    const speech = await openai.audio.speech.create({
-      model: 'gpt-4o-mini-tts',
-      voice: 'alloy',
-      input: assistantText,
-      format: 'mp3'
-    });
-    const base64Audio = Buffer.from(await speech.arrayBuffer()).toString('base64');
+    // Text-to-speech (catch errors; some languages/voices unsupported)
+    let base64Audio = '';
+    try {
+      const speech = await openai.audio.speech.create({
+        model: 'gpt-4o-mini-tts',
+        voice: 'alloy',
+        input: assistantText,
+        format: 'mp3'
+      });
+      base64Audio = Buffer.from(await speech.arrayBuffer()).toString('base64');
+    } catch (ttsErr) {
+      console.warn('TTS failed; returning text only', ttsErr?.message || ttsErr);
+      base64Audio = '';
+    }
     // Persist the turn to Firestore (if admin initialized and uid provided)
     if (adminApp && uid) {
       try {
