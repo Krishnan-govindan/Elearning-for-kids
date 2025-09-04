@@ -365,6 +365,8 @@
       #transcript, #answer {
         display: none;
       }
+      /* Hide the mobile toggle button by default; it becomes visible on small screens */
+      .mobile-toggle { display: none; }
       /* Hide the mobile header by default; it becomes visible on small screens */
       #mobileHeader { display: none; }
       /* Mobile responsiveness: reuse existing classes */
@@ -414,7 +416,7 @@
       Please sign in to start using Kid Speak &amp; Learn.
     </div>
     <!-- Button to reveal recent chats on mobile.  Visible only on small screens -->
-    <button id="toggleSidebarBtn" class="mobile-toggle" style="display:none;">Recent Chats</button>
+    <button id="toggleSidebarBtn" class="mobile-toggle">Recent Chats</button>
     <div class="app-container">
       <!-- Sidebar containing header, language selection, chats and user profile -->
       <aside class="side" id="sidebar">
@@ -484,7 +486,7 @@
       <!-- Main conversation area -->
       <main>
         <!-- Mobile header shows the app name and language selector on small screens.  Hidden on desktop. -->
-        <div id="mobileHeader" class="mobile-header" style="display:none; padding:1rem; border-bottom:1px solid var(--bd);">
+        <div id="mobileHeader" class="mobile-header" style="padding:1rem; border-bottom:1px solid var(--bd);">
           <div style="display:flex; align-items:center; gap:.75rem; margin-bottom:.5rem;">
             <div style="width:32px; height:32px; background:var(--primary); color:var(--primary-contrast); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.9rem;">💬</div>
             <h1 style="margin:0; font-size:1.2rem; font-weight:600;">Kid Speak &amp; Learn</h1>
