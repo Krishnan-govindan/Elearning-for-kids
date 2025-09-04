@@ -365,6 +365,8 @@
       #transcript, #answer {
         display: none;
       }
+      /* Hide the mobile header by default; it becomes visible on small screens */
+      #mobileHeader { display: none; }
       /* Mobile responsiveness: reuse existing classes */
       @media (max-width: 940px) {
         .side {
@@ -390,6 +392,8 @@
           padding: .5rem .75rem;
           border-radius: 8px;
         }
+        /* Show the mobile header when the viewport is narrow */
+        #mobileHeader { display: block; }
       }
     </style>
   </head>
@@ -409,7 +413,8 @@
     <div id="loginRequired" style="display:none; text-align:center; margin:1rem 0; padding:1rem; border:1px solid var(--bd); border-radius:12px; background:#fff;">
       Please sign in to start using Kid Speak &amp; Learn.
     </div>
-    <button id="toggleSidebarBtn" class="mobile-toggle" style="display:none;">☰ Chats</button>
+    <!-- Button to reveal recent chats on mobile.  Visible only on small screens -->
+    <button id="toggleSidebarBtn" class="mobile-toggle" style="display:none;">Recent Chats</button>
     <div class="app-container">
       <!-- Sidebar containing header, language selection, chats and user profile -->
       <aside class="side" id="sidebar">
@@ -478,6 +483,55 @@
       </aside>
       <!-- Main conversation area -->
       <main>
+        <!-- Mobile header shows the app name and language selector on small screens.  Hidden on desktop. -->
+        <div id="mobileHeader" class="mobile-header" style="display:none; padding:1rem; border-bottom:1px solid var(--bd);">
+          <div style="display:flex; align-items:center; gap:.75rem; margin-bottom:.5rem;">
+            <div style="width:32px; height:32px; background:var(--primary); color:var(--primary-contrast); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.9rem;">💬</div>
+            <h1 style="margin:0; font-size:1.2rem; font-weight:600;">Kid Speak &amp; Learn</h1>
+          </div>
+          <!-- Language selector for mobile -->
+          <div id="mobileLangCard" class="lang-card" style="margin-bottom:.5rem;">
+            <div style="display:flex; align-items:center; gap:.5rem;">
+              <span>🌐</span>
+              <span id="mobileLangLabel">English → English</span>
+            </div>
+            <span style="font-size:.9rem;">▼</span>
+          </div>
+          <div id="mobileLangSettings" class="lang-settings" style="display:none;">
+            <div style="margin-bottom:.75rem;">
+              <label for="mobileSpeakLang">Speaking</label>
+              <select id="mobileSpeakLang" required>
+                <option value="">Select language</option>
+                <option>English</option>
+                <option>Hindi (हिन्दी)</option>
+                <option>Tamil (தமிழ்)</option>
+                <option>Telugu (తెలుగు)</option>
+                <option>Kannada (ಕನ್ನಡ)</option>
+                <option>Malayalam (മലയാളം)</option>
+                <option>Marathi (मराठी)</option>
+                <option>Gujarati (ગુજરાતી)</option>
+                <option>Bengali (বাংলা)</option>
+                <option>Panjabi (ਪੰਜਾਬੀ)</option>
+              </select>
+            </div>
+            <div>
+              <label for="mobileAnswerLang">Answer</label>
+              <select id="mobileAnswerLang" required>
+                <option value="">Select language</option>
+                <option>English</option>
+                <option>Hindi (हिन्दी)</option>
+                <option>Tamil (தமிழ்)</option>
+                <option>Telugu (తెలుగు)</option>
+                <option>Kannada (ಕನ್ನಡ)</option>
+                <option>Malayalam (മലയാളം)</option>
+                <option>Marathi (मराठी)</option>
+                <option>Gujarati (ગુજરાતી)</option>
+                <option>Bengali (বাংলা)</option>
+                <option>Panjabi (ਪੰਜਾਬੀ)</option>
+              </select>
+            </div>
+          </div>
+        </div>
         <div id="status" class="status">Choose both languages → tap <b>Start recording</b>, type a question or tap <b>Send</b>.</div>
         <div id="loadingBar">We are preparing your answers…</div>
         <!-- Chat thread -->
@@ -603,9 +657,70 @@
         const speak = speakSelect.value || 'Speaking';
         const ans   = answerSelect.value || 'Answer';
         langLabel.textContent = speak + ' → ' + ans;
+        // Also update the mobile language label if it exists
+        const mobileLabel = document.getElementById('mobileLangLabel');
+        if (mobileLabel) {
+          mobileLabel.textContent = speak + ' → ' + ans;
+        }
       }
-      speakSelect.addEventListener('change', () => { updateLangLabel(); validateLangs(); });
-      answerSelect.addEventListener('change', () => { updateLangLabel(); validateLangs(); });
+      speakSelect.addEventListener('change', () => {
+        // sync mobile select when desktop select changes
+        const mobileSpeak = document.getElementById('mobileSpeakLang');
+        if (mobileSpeak && mobileSpeak.value !== speakSelect.value) {
+          mobileSpeak.value = speakSelect.value;
+        }
+        updateLangLabel();
+        validateLangs();
+      });
+      answerSelect.addEventListener('change', () => {
+        // sync mobile select when desktop select changes
+        const mobileAnswer = document.getElementById('mobileAnswerLang');
+        if (mobileAnswer && mobileAnswer.value !== answerSelect.value) {
+          mobileAnswer.value = answerSelect.value;
+        }
+        updateLangLabel();
+        validateLangs();
+      });
+
+      // Mobile language selector logic
+      const mobileLangCard = document.getElementById('mobileLangCard');
+      const mobileLangSettings = document.getElementById('mobileLangSettings');
+      if (mobileLangCard) {
+        mobileLangCard.addEventListener('click', () => {
+          const open = mobileLangSettings.style.display !== 'none';
+          mobileLangSettings.style.display = open ? 'none' : 'block';
+        });
+      }
+      const mobileSpeak = document.getElementById('mobileSpeakLang');
+      const mobileAnswer = document.getElementById('mobileAnswerLang');
+      function updateMobileLangLabel() {
+        const speak = mobileSpeak.value || 'Speaking';
+        const ans   = mobileAnswer.value || 'Answer';
+        const mobileLabel = document.getElementById('mobileLangLabel');
+        if (mobileLabel) mobileLabel.textContent = speak + ' → ' + ans;
+      }
+      if (mobileSpeak) {
+        mobileSpeak.addEventListener('change', () => {
+          // sync desktop select when mobile select changes
+          if (speakSelect.value !== mobileSpeak.value) {
+            speakSelect.value = mobileSpeak.value;
+            // update all dependent states
+            updateLangLabel();
+            validateLangs();
+          }
+          updateMobileLangLabel();
+        });
+      }
+      if (mobileAnswer) {
+        mobileAnswer.addEventListener('change', () => {
+          if (answerSelect.value !== mobileAnswer.value) {
+            answerSelect.value = mobileAnswer.value;
+            updateLangLabel();
+            validateLangs();
+          }
+          updateMobileLangLabel();
+        });
+      }
     </script>
     <!-- Existing application script preserved for chat functionality -->
     <script>
@@ -1008,6 +1123,13 @@
         validateLangs();
         renderThread();
         updateLangLabel();
+        // Synchronise the mobile language selects with the initial desktop values
+        const mSpeak = document.getElementById('mobileSpeakLang');
+        const mAns   = document.getElementById('mobileAnswerLang');
+        if (mSpeak) mSpeak.value = speakLangSel.value;
+        if (mAns)   mAns.value   = answerLangSel.value;
+        const mobileLabel = document.getElementById('mobileLangLabel');
+        if (mobileLabel) mobileLabel.textContent = (speakLangSel.value || 'Speaking') + ' → ' + (answerLangSel.value || 'Answer');
       });
     </script>
   </body>
